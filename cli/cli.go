@@ -44,6 +44,14 @@ func runLoadCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse file %s", file)
 	}
 
+	if len(compose.Services) == 0 {
+		return fmt.Errorf("no services defined in file %s", file)
+	}
+
+	for service := range compose.Services {
+		fmt.Fprintln(cmd.OutOrStdout(), service)
+	}
+
 	return nil
 }
 

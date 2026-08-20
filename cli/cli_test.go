@@ -62,6 +62,30 @@ func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
+	file := stubFile(t, `version: "3.8"`)
+
+	output, err := executeCommand(t, LoadCmd, file)
+
+	assert.Error(t, err)
+	assert.Contains(t, output, "no services defined in file")
+}
+
+func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
+	file := stubFile(t, `services:
+	web:
+		image: nginx
+	db:
+		image: postgres
+`)
+
+	output, err := executeCommand(t, LoadCmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "db")
+}
+
 func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 
