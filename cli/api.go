@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"chaosd/cli/internal/docker"
+
 	"github.com/spf13/cobra"
 )
 
@@ -12,12 +14,16 @@ type ComposeFile struct {
 	Services map[string]any `yaml:"services"`
 }
 
-var LoadCmd = &cobra.Command{
-	Use:   "load",
-	Short: "Load a compose file",
-	Long:  `Load a Docker compose file into chaosd daemon.`,
-	RunE:  runLoadCmd,
-	Args:  cobra.ExactArgs(1),
+func NewLoadCmd(docker docker.DockerProvider) *cobra.Command {
+	return &cobra.Command{
+		Use:   "load",
+		Short: "Load a compose file",
+		Long:  `Load a Docker compose file into chaosd daemon.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLoadCmd(cmd, args, docker)
+		},
+		Args: cobra.ExactArgs(1),
+	}
 }
 
 var RootCmd = &cobra.Command{
@@ -27,7 +33,9 @@ var RootCmd = &cobra.Command{
 }
 
 func Init() {
-	RootCmd.AddCommand(LoadCmd)
+	dockerProvider := docker.NewDockerProvider()
+
+	RootCmd.AddCommand(NewLoadCmd(dockerProvider))
 }
 
 func Execute() {

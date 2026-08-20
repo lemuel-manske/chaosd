@@ -1,38 +1,27 @@
 package cli
 
 import (
-	"bytes"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRootCmdGeneratesNoErrors(t *testing.T) {
-	_, err := executeCommand(t, RootCmd)
-
-	assert.NoError(t, err)
-}
-
 func TestLoadCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, LoadCmd)
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 0")
 }
 
 func TestLoadCmdWithMultipleArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, LoadCmd, "file1", "file2")
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), "file1", "file2")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 2")
 }
 
 func TestLoadCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := executeCommand(t, LoadCmd, "file1")
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), "file1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "file file1 does not exist")
@@ -45,7 +34,7 @@ func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
     ports: [
 `)
 
-	output, err := executeCommand(t, LoadCmd, file)
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
@@ -57,7 +46,7 @@ func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
     image: nginx
 `)
 
-	_, err := executeCommand(t, LoadCmd, file)
+	_, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
 
 	assert.NoError(t, err)
 }
@@ -65,7 +54,7 @@ func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
 func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
 	file := stubFile(t, `version: "3.8"`)
 
-	output, err := executeCommand(t, LoadCmd, file)
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "no services defined in file")
@@ -79,34 +68,23 @@ func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
     image: postgres
 `)
 
-	output, err := executeCommand(t, LoadCmd, file)
+	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
 
 	assert.NoError(t, err)
 	assert.Contains(t, output, "web")
 	assert.Contains(t, output, "db")
 }
 
-func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
-	t.Helper()
+func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
+	file := stubFile(t, `services:
+  web:
+    image: nginx
+`)
 
-	var output bytes.Buffer
+	cmd := NewLoadCmd(unreachableDockerProvider())
 
-	cmd.SetOut(&output)
-	cmd.SetErr(&output)
-	cmd.SetArgs(args)
+	output, err := executeCommand(t, cmd, file)
 
-	err := cmd.Execute()
-
-	return output.String(), err
-}
-
-func stubFile(t *testing.T, content string) string {
-	t.Helper()
-
-	file := filepath.Join(t.TempDir(), "stub.yaml")
-
-	err := os.WriteFile(file, []byte(content), 0o600)
-	require.NoError(t, err)
-
-	return file
+	assert.Error(t, err)
+	assert.Contains(t, output, "failed to ping docker daemon")
 }

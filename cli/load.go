@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"chaosd/cli/internal/docker"
+
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v4"
 )
@@ -36,7 +38,7 @@ func parseComposeFile(file string) (*ComposeFile, error) {
 	return &compose, nil
 }
 
-func runLoadCmd(cmd *cobra.Command, args []string) error {
+func runLoadCmd(cmd *cobra.Command, args []string, dockerProvider docker.DockerProvider) error {
 	compose, err := parseComposeFile(args[0])
 
 	if err != nil {
@@ -45,6 +47,18 @@ func runLoadCmd(cmd *cobra.Command, args []string) error {
 
 	for service := range compose.Services {
 		fmt.Fprintln(cmd.OutOrStdout(), service)
+	}
+
+	cli, err := dockerProvider.NewClient()
+
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %v", err)
+	}
+
+	err = cli.Ping(cmd.Context())
+
+	if err != nil {
+		return fmt.Errorf("failed to ping docker daemon: %v", err)
 	}
 
 	return nil
