@@ -8,31 +8,39 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-func runLoadCmd(cmd *cobra.Command, args []string) error {
-	file := args[0]
-
+func parseComposeFile(file string) (*ComposeFile, error) {
 	if _, err := os.Stat(file); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file %s does not exist", file)
+			return nil, fmt.Errorf("file %s does not exist", file)
 		}
 
-		return err
+		return nil, err
 	}
 
 	yamlFile, err := os.ReadFile(file)
 
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %v", file, err)
+		return nil, fmt.Errorf("failed to read file %s: %v", file, err)
 	}
 
 	var compose ComposeFile
 
 	if err := yaml.Unmarshal(yamlFile, &compose); err != nil {
-		return fmt.Errorf("failed to parse file %s", file)
+		return nil, fmt.Errorf("failed to parse file %s", file)
 	}
 
 	if len(compose.Services) == 0 {
-		return fmt.Errorf("no services defined in file %s", file)
+		return nil, fmt.Errorf("no services defined in file %s", file)
+	}
+
+	return &compose, nil
+}
+
+func runLoadCmd(cmd *cobra.Command, args []string) error {
+	compose, err := parseComposeFile(args[0])
+
+	if err != nil {
+		return err
 	}
 
 	for service := range compose.Services {
