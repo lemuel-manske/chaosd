@@ -1,5 +1,10 @@
 package main
 
-func greeting() string {
-	return "Hello, World!"
+import (
+	"chaosd/cli"
+)
+
+func main() {
+	cli.Init()
+	cli.Execute()
 }
