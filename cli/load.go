@@ -8,19 +8,6 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-type ComposeFile struct {
-	Version  string         `yaml:"version"`
-	Services map[string]any `yaml:"services"`
-}
-
-var LoadCmd = &cobra.Command{
-	Use:   "load",
-	Short: "Load a docker-compose file",
-	Long:  `Load a docker-compose file to chaosd daemon.`,
-	RunE:  runLoadCmd,
-	Args:  cobra.ExactArgs(1),
-}
-
 func runLoadCmd(cmd *cobra.Command, args []string) error {
 	file := args[0]
 
@@ -53,25 +40,4 @@ func runLoadCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-var RootCmd = &cobra.Command{
-	Use:   "chaosd",
-	Short: "Chaosd is a laboratory for distributed systems",
-	Run:   runChaosd,
-}
-
-func runChaosd(cmd *cobra.Command, args []string) {
-	print("Chaosd command executed\n")
-}
-
-func Init() {
-	RootCmd.AddCommand(LoadCmd)
-}
-
-func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 }

@@ -73,10 +73,10 @@ func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
 
 func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
 	file := stubFile(t, `services:
-	web:
-		image: nginx
-	db:
-		image: postgres
+  web:
+    image: nginx
+  db:
+    image: postgres
 `)
 
 	output, err := executeCommand(t, LoadCmd, file)
