@@ -62,7 +62,8 @@ func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
-	file := stubFile(t, `services:
+	file := stubFile(t, `name: test
+services:
   web:
     image: nginx
   db:
@@ -77,7 +78,8 @@ func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
-	file := stubFile(t, `services:
+	file := stubFile(t, `name: test
+services:
   web:
     image: nginx
 `)
@@ -91,7 +93,8 @@ func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
-	file := stubFile(t, `services:
+	file := stubFile(t, `name: test
+services:
   web:
     image: nginx
 `)
@@ -105,7 +108,8 @@ func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlButNoContainersRunningThenPrintMissingContainer(t *testing.T) {
-	file := stubFile(t, `services:
+	file := stubFile(t, `name: test
+services:
   web:
     image: nginx
 `)
@@ -121,7 +125,8 @@ func TestLoadCmdWithValidYamlButNoContainersRunningThenPrintMissingContainer(t *
 }
 
 func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenPrintMissingContainer(t *testing.T) {
-	file := stubFile(t, `services:
+	file := stubFile(t, `name: test
+services:
   web:
     image: nginx
 `)
@@ -131,6 +136,7 @@ func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenP
 			{
 				ID:    "1234567890",
 				Names: []string{"chaosd-app-1"},
+				State: "running",
 			},
 		},
 	))
@@ -141,7 +147,7 @@ func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenP
 	assert.Contains(t, output, "web -> missing")
 }
 
-func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *testing.T) {
+func TestLoadCmdWithValidYamlAndRunningContainerThenFilterProjectNameByDirIfKeyMissing(t *testing.T) {
 	file := stubFile(t, `services:
   web:
     image: nginx
@@ -154,7 +160,9 @@ func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *te
 				Names: []string{"chaosd-app-1"},
 				Labels: map[string]string{
 					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "001", // 001 is the temp dir name
 				},
+				State: "running",
 			},
 		},
 	))
@@ -163,4 +171,132 @@ func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *te
 
 	assert.NoError(t, err)
 	assert.Contains(t, output, "web -> chaosd-app-1 running")
+}
+
+func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *testing.T) {
+	file := stubFile(t, `name: test
+services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "test",
+				},
+				State: "running",
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> chaosd-app-1 running")
+}
+
+func TestLoadCmdWithValidYamlAndMultipleRunningContainersThenPrintRunningContainers(t *testing.T) {
+	file := stubFile(t, `name: test
+services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "test",
+				},
+				State: "running",
+			},
+			{
+				ID:    "0987654321",
+				Names: []string{"chaosd-app-2"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "test",
+				},
+				State: "running",
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> chaosd-app-1 running")
+	assert.Contains(t, output, "web -> chaosd-app-2 running")
+}
+
+func TestLoadCmdWithValidYamlAndExitedContainerThenPrintExitedContainer(t *testing.T) {
+	file := stubFile(t, `name: test
+services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "test",
+				},
+				State: "exited",
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> chaosd-app-1 exited")
+}
+
+func TestLoadCmdWithValidYamlAndMultipleProjectsThenPrintOnlyMatchingProject(t *testing.T) {
+	file := stubFile(t, `name: project1
+services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "project1",
+				},
+				State: "running",
+			},
+			{
+				ID:    "0987654321",
+				Names: []string{"chaosd-app-2"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+					"com.docker.compose.project": "project2",
+				},
+				State: "running",
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> chaosd-app-1 running")
+	assert.NotContains(t, output, "chaosd-app-2")
 }

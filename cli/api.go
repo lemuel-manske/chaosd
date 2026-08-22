@@ -10,6 +10,7 @@ import (
 )
 
 type ComposeFile struct {
+	Name     string         `yaml:"name"`
 	Version  string         `yaml:"version"`
 	Services map[string]any `yaml:"services"`
 }

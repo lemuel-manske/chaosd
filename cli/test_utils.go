@@ -37,31 +37,35 @@ func (f *dockerClientMock) ContainerList(
 	ctx context.Context,
 	options client.ContainerListOptions,
 ) ([]container.Summary, error) {
-	filteredContainers := f.containers
-
 	labelFilters := options.Filters["label"]
 
 	if len(labelFilters) == 0 {
-		return filteredContainers, f.err
+		return f.containers, f.err
 	}
 
-	filteredContainers = nil
+	var filteredContainers []container.Summary
 
 	for _, ctr := range f.containers {
-		for labelFilter := range labelFilters {
-			key, value, found := strings.Cut(labelFilter, "=")
+		matchesAll := true
 
-			if found {
-				if ctr.Labels[key] == value {
-					filteredContainers = append(filteredContainers, ctr)
+		for labelFilter := range labelFilters {
+			key, value, hasValue := strings.Cut(labelFilter, "=")
+
+			if hasValue {
+				if actualValue, ok := ctr.Labels[key]; !ok || actualValue != value {
+					matchesAll = false
 					break
 				}
 			} else {
-				if _, ok := ctr.Labels[key]; ok {
-					filteredContainers = append(filteredContainers, ctr)
+				if _, ok := ctr.Labels[key]; !ok {
+					matchesAll = false
 					break
 				}
 			}
+		}
+
+		if matchesAll {
+			filteredContainers = append(filteredContainers, ctr)
 		}
 	}
 

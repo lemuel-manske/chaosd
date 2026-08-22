@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"chaosd/cli/internal/docker"
 
@@ -10,6 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v4"
 )
+
+const missingState = "missing"
+
+const reportFormat = "%s -> %s%s\n"
 
 func parseComposeFile(file string) (*ComposeFile, error) {
 	if _, err := os.Stat(file); err != nil {
@@ -21,7 +26,6 @@ func parseComposeFile(file string) (*ComposeFile, error) {
 	}
 
 	yamlFile, err := os.ReadFile(file)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %v", file, err)
 	}
@@ -34,6 +38,16 @@ func parseComposeFile(file string) (*ComposeFile, error) {
 
 	if len(compose.Services) == 0 {
 		return nil, fmt.Errorf("no services defined in file %s", file)
+	}
+
+	if compose.Name == "" {
+		absFile, err := filepath.Abs(file)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve file path %s: %v", file, err)
+		}
+
+		compose.Name = filepath.Base(filepath.Dir(absFile))
 	}
 
 	return &compose, nil
@@ -61,8 +75,11 @@ func runLoadCmd(cmd *cobra.Command, args []string, dockerProvider docker.DockerP
 	for service := range compose.Services {
 		filters := client.Filters{}
 
-		labelFilter := fmt.Sprintf("com.docker.compose.service=%s", service)
-		filters.Add("label", labelFilter)
+		serviceNameFilter := fmt.Sprintf("com.docker.compose.service=%s", service)
+		projectNameFilter := fmt.Sprintf("com.docker.compose.project=%s", compose.Name)
+
+		filters.Add("label", serviceNameFilter)
+		filters.Add("label", projectNameFilter)
 
 		containers, err := cli.ContainerList(cmd.Context(), client.ContainerListOptions{
 			Filters: filters,
@@ -73,13 +90,37 @@ func runLoadCmd(cmd *cobra.Command, args []string, dockerProvider docker.DockerP
 		}
 
 		if len(containers) == 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s -> missing\n", service)
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				reportFormat,
+				service,
+				"",
+				missingState,
+			)
+
 			continue
 		}
 
-		containerName := containers[0].Names[0]
+		for _, container := range containers {
+			names := container.Names
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s -> %s running\n", service, containerName)
+			if len(names) == 0 {
+				// containers always have names
+				// if the container does not have one, panic! at least at this moment
+
+				panic(fmt.Sprintf("container %s has no names", container.ID))
+			}
+
+			containerName := names[0] + " "
+
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				reportFormat,
+				service,
+				containerName,
+				container.State,
+			)
+		}
 	}
 
 	return nil
