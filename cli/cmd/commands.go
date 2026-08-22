@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"chaosd/cli/cmd/load"
+	"chaosd/cli/cmd/ps"
 	"chaosd/cli/internal/docker"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ func Init(rootCmd *cobra.Command) {
 	dockerProvider := docker.NewDockerProvider()
 
 	rootCmd.AddCommand(load.NewLoadCmd(dockerProvider))
+	rootCmd.AddCommand(ps.NewPsCmd(dockerProvider))
 }
 
 func Execute(rootCmd *cobra.Command) {

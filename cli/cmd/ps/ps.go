@@ -1,21 +1,16 @@
-package load
+package ps
 
 import (
+	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/topology"
 	"context"
 	"fmt"
 	"io"
 
-	"chaosd/cli/internal/docker"
-	"chaosd/cli/internal/topology"
-
 	"github.com/spf13/cobra"
 )
 
-const missingState = "missing"
-
-const reportFormat = "%s -> %s%s\n"
-
-func doLoad(
+func doPs(
 	compose *docker.ComposeFile,
 	ctx context.Context,
 	stdout io.Writer,
@@ -32,7 +27,7 @@ func doLoad(
 	return nil
 }
 
-func runLoadCmd(
+func runPsCmd(
 	cmd *cobra.Command,
 	args []string,
 	dockerProvider docker.DockerProvider,
@@ -52,7 +47,7 @@ func runLoadCmd(
 	stdout := cmd.OutOrStdout()
 	ctx := cmd.Context()
 
-	return doLoad(
+	return doPs(
 		composeFile,
 		ctx,
 		stdout,
