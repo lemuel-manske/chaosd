@@ -1,0 +1,24 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+
+	"chaosd/cli/cmd/load"
+	"chaosd/cli/internal/docker"
+
+	"github.com/spf13/cobra"
+)
+
+func Init(rootCmd *cobra.Command) {
+	dockerProvider := docker.NewDockerProvider()
+
+	rootCmd.AddCommand(load.NewLoadCmd(dockerProvider))
+}
+
+func Execute(rootCmd *cobra.Command) {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}

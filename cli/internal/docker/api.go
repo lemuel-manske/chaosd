@@ -7,6 +7,12 @@ import (
 	"github.com/moby/moby/client"
 )
 
+type ComposeFile struct {
+	Name     string         `yaml:"name"`
+	Version  string         `yaml:"version"`
+	Services map[string]any `yaml:"services"`
+}
+
 type DockerClient interface {
 	Ping(ctx context.Context) error
 

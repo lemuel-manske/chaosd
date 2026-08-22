@@ -1,4 +1,4 @@
-package cli
+package test
 
 import (
 	"bytes"
@@ -72,11 +72,11 @@ func (f *dockerClientMock) ContainerList(
 	return filteredContainers, f.err
 }
 
-func realDockerProvider() docker.DockerProvider {
+func RealDockerProvider() docker.DockerProvider {
 	return docker.NewDockerProvider()
 }
 
-func stillDockerProvider() docker.DockerProvider {
+func EmptyDockerProvider() docker.DockerProvider {
 	return &dockerProviderMock{
 		client: &dockerClientMock{
 			containers: []container.Summary{},
@@ -84,7 +84,7 @@ func stillDockerProvider() docker.DockerProvider {
 	}
 }
 
-func fakeDockerProvider(
+func FakeDockerProvider(
 	containers []container.Summary,
 ) docker.DockerProvider {
 	return &dockerProviderMock{
@@ -94,7 +94,7 @@ func fakeDockerProvider(
 	}
 }
 
-func unreachableDockerProvider() docker.DockerProvider {
+func UnreachableDockerProvider() docker.DockerProvider {
 	return &dockerProviderMock{
 		client: &dockerClientMock{
 			err: os.ErrNotExist,
@@ -102,7 +102,7 @@ func unreachableDockerProvider() docker.DockerProvider {
 	}
 }
 
-func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
+func ExecuteCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 
 	var output bytes.Buffer
@@ -116,7 +116,7 @@ func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, e
 	return output.String(), err
 }
 
-func stubFile(t *testing.T, content string) string {
+func StubFile(t *testing.T, content string) string {
 	t.Helper()
 
 	file := filepath.Join(t.TempDir(), "stub.yaml")

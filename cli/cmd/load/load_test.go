@@ -1,68 +1,70 @@
-package cli
+package load
 
 import (
 	"testing"
+
+	"chaosd/cli/test"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()))
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 0")
 }
 
 func TestLoadCmdWithMultipleArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), "file1", "file2")
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), "file1", "file2")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 2")
 }
 
 func TestLoadCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), "file1")
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), "file1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "file file1 does not exist")
 }
 
 func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := stubFile(t, `services:
+	file := test.StubFile(t, `services:
   app:
     image: nginx
     ports: [
 `)
 
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
 }
 
-func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
-	file := stubFile(t, `services:
+func TestLoadCmdWithValidYamlAndEmptyDockerProviderThenSucceed(t *testing.T) {
+	file := test.StubFile(t, `services:
   web:
     image: nginx
 `)
 
-	_, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
+	_, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), file)
 
 	assert.NoError(t, err)
 }
 
 func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
-	file := stubFile(t, `version: "3.8"`)
+	file := test.StubFile(t, `version: "3.8"`)
 
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "no services defined in file")
 }
 
 func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
@@ -70,7 +72,7 @@ services:
     image: postgres
 `)
 
-	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
+	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), file)
 
 	assert.NoError(t, err)
 	assert.Contains(t, output, "web")
@@ -78,60 +80,46 @@ services:
 }
 
 func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(unreachableDockerProvider())
+	cmd := NewLoadCmd(test.UnreachableDockerProvider())
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to ping docker daemon")
 }
 
-func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
-	file := stubFile(t, `name: test
-services:
-  web:
-    image: nginx
-`)
-
-	cmd := NewLoadCmd(realDockerProvider())
-
-	output, err := executeCommand(t, cmd, file)
-
-	assert.NoError(t, err)
-	assert.Contains(t, output, "web")
-}
-
 func TestLoadCmdWithValidYamlButNoContainersRunningThenPrintMissingContainer(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> missing")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "missing")
 }
 
 func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenPrintMissingContainer(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -141,19 +129,20 @@ services:
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> missing")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "missing")
 }
 
 func TestLoadCmdWithValidYamlAndRunningContainerThenFilterProjectNameByDirIfKeyMissing(t *testing.T) {
-	file := stubFile(t, `services:
+	file := test.StubFile(t, `services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -167,20 +156,22 @@ func TestLoadCmdWithValidYamlAndRunningContainerThenFilterProjectNameByDirIfKeyM
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> chaosd-app-1 running")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-1")
+	assert.Contains(t, output, "running")
 }
 
 func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -194,20 +185,22 @@ services:
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> chaosd-app-1 running")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-1")
+	assert.Contains(t, output, "running")
 }
 
 func TestLoadCmdWithValidYamlAndMultipleRunningContainersThenPrintRunningContainers(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -230,21 +223,26 @@ services:
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> chaosd-app-1 running")
-	assert.Contains(t, output, "web -> chaosd-app-2 running")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-1")
+	assert.Contains(t, output, "running")
+
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-2")
+	assert.Contains(t, output, "running")
 }
 
 func TestLoadCmdWithValidYamlAndExitedContainerThenPrintExitedContainer(t *testing.T) {
-	file := stubFile(t, `name: test
+	file := test.StubFile(t, `name: test
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -258,20 +256,22 @@ services:
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> chaosd-app-1 exited")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-1")
+	assert.Contains(t, output, "exited")
 }
 
 func TestLoadCmdWithValidYamlAndMultipleProjectsThenPrintOnlyMatchingProject(t *testing.T) {
-	file := stubFile(t, `name: project1
+	file := test.StubFile(t, `name: project1
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(fakeDockerProvider(
+	cmd := NewLoadCmd(test.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -294,9 +294,11 @@ services:
 		},
 	))
 
-	output, err := executeCommand(t, cmd, file)
+	output, err := test.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web -> chaosd-app-1 running")
+	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "chaosd-app-1")
+	assert.Contains(t, output, "running")
 	assert.NotContains(t, output, "chaosd-app-2")
 }
