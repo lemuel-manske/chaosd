@@ -1,4 +1,4 @@
-package load
+package topology
 
 import (
 	"chaosd/cli/internal/docker"
@@ -17,10 +17,11 @@ type Node struct {
 }
 
 type Topology struct {
-	Nodes []Node
+	Project string
+	Nodes   []Node
 }
 
-func loadTopology(
+func LoadTopology(
 	compose *docker.ComposeFile,
 	ctx context.Context,
 	cli docker.DockerClient,
@@ -31,7 +32,10 @@ func loadTopology(
 		return nil, fmt.Errorf("failed to ping docker daemon: %v", err)
 	}
 
-	var topology Topology
+	var topology = Topology{
+		Project: compose.Name,
+		Nodes:   []Node{},
+	}
 
 	for service := range compose.Services {
 		filters := client.Filters{}
@@ -52,9 +56,8 @@ func loadTopology(
 
 		if len(containers) == 0 {
 			topology.Nodes = append(topology.Nodes, Node{
-				Service:       service,
-				ContainerName: service,
-				State:         "missing",
+				Service: service,
+				State:   "missing",
 			})
 			continue
 		}
@@ -83,7 +86,7 @@ func loadTopology(
 	return &topology, nil
 }
 
-func printTopology(topology *Topology, stdout io.Writer) {
+func PrintTopology(topology *Topology, stdout io.Writer) {
 	reportFormat := "%-20s %-30s %-10s\n"
 	missingState := "missing"
 

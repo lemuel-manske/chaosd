@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v4"
@@ -60,13 +61,13 @@ func doLoad(
 	stdout io.Writer,
 	cli docker.DockerClient,
 ) error {
-	topology, err := loadTopology(compose, ctx, cli)
+	t, err := topology.LoadTopology(compose, ctx, cli)
 
 	if err != nil {
 		return err
 	}
 
-	printTopology(topology, stdout)
+	topology.PrintTopology(t, stdout)
 
 	return nil
 }
