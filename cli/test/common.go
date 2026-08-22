@@ -1,19 +1,14 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
-	"testing"
 
 	"chaosd/cli/internal/docker"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
-	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/require"
 )
 
 type dockerProviderMock struct {
@@ -100,29 +95,4 @@ func UnreachableDockerProvider() docker.DockerProvider {
 			err: os.ErrNotExist,
 		},
 	}
-}
-
-func ExecuteCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
-	t.Helper()
-
-	var output bytes.Buffer
-
-	cmd.SetOut(&output)
-	cmd.SetErr(&output)
-	cmd.SetArgs(args)
-
-	err := cmd.Execute()
-
-	return output.String(), err
-}
-
-func StubFile(t *testing.T, content string) string {
-	t.Helper()
-
-	file := filepath.Join(t.TempDir(), "stub.yaml")
-
-	err := os.WriteFile(file, []byte(content), 0o600)
-	require.NoError(t, err)
-
-	return file
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -20,4 +20,5 @@ services:
 
 	assert.NoError(t, err)
 	assert.Contains(t, output, "web")
+	assert.Contains(t, output, "missing")
 }

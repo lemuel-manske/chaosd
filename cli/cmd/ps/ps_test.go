@@ -31,7 +31,7 @@ func TestPsCmdWithNonExistentFileThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := test.StubFile(t, `services:
+	file := test.File(t, `services:
   app:
     image: nginx
     ports: [
@@ -44,7 +44,7 @@ func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
 }
 
 func TestPsCmdWithRunningContainerThenPrintTopology(t *testing.T) {
-	file := test.StubFile(t, `name: project1
+	file := test.File(t, `name: project1
 services:
   web:
     image: nginx

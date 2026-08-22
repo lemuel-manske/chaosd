@@ -31,7 +31,7 @@ func TestLoadCmdWithNonExistentFileThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := test.StubFile(t, `services:
+	file := test.File(t, `services:
   app:
     image: nginx
     ports: [
@@ -44,7 +44,7 @@ func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlAndEmptyDockerProviderThenSucceed(t *testing.T) {
-	file := test.StubFile(t, `services:
+	file := test.File(t, `services:
   web:
     image: nginx
 `)
@@ -55,7 +55,7 @@ func TestLoadCmdWithValidYamlAndEmptyDockerProviderThenSucceed(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
-	file := test.StubFile(t, `version: "3.8"`)
+	file := test.File(t, `version: "3.8"`)
 
 	output, err := test.ExecuteCommand(t, NewLoadCmd(test.EmptyDockerProvider()), file)
 
@@ -64,7 +64,7 @@ func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
 }
 
 func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -80,7 +80,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -95,7 +95,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlButNoContainersRunningThenPrintMissingContainer(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -113,7 +113,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenPrintMissingContainer(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -137,7 +137,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlAndRunningContainerThenFilterProjectNameByDirIfKeyMissing(t *testing.T) {
-	file := test.StubFile(t, `services:
+	file := test.File(t, `services:
   web:
     image: nginx
 `)
@@ -165,7 +165,7 @@ func TestLoadCmdWithValidYamlAndRunningContainerThenFilterProjectNameByDirIfKeyM
 }
 
 func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -194,7 +194,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlAndMultipleRunningContainersThenPrintRunningContainers(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -236,7 +236,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlAndExitedContainerThenPrintExitedContainer(t *testing.T) {
-	file := test.StubFile(t, `name: test
+	file := test.File(t, `name: test
 services:
   web:
     image: nginx
@@ -265,7 +265,7 @@ services:
 }
 
 func TestLoadCmdWithValidYamlAndMultipleProjectsThenPrintOnlyMatchingProject(t *testing.T) {
-	file := test.StubFile(t, `name: project1
+	file := test.File(t, `name: project1
 services:
   web:
     image: nginx
