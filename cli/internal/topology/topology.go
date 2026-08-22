@@ -42,11 +42,11 @@ func LoadTopology(
 
 		serviceNameFilter := fmt.Sprintf("com.docker.compose.service=%s", service)
 		projectNameFilter := fmt.Sprintf("com.docker.compose.project=%s", compose.Name)
-
 		filters.Add("label", serviceNameFilter)
 		filters.Add("label", projectNameFilter)
 
 		containers, err := cli.ContainerList(ctx, client.ContainerListOptions{
+			All:     true,
 			Filters: filters,
 		})
 
