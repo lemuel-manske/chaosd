@@ -5,10 +5,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"chaosd/cli/internal/docker"
 
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -22,16 +25,68 @@ func (m *dockerProviderMock) NewClient() (docker.DockerClient, error) {
 }
 
 type dockerClientMock struct {
-	err error
+	containers []container.Summary
+	err        error
 }
 
 func (f dockerClientMock) Ping(context.Context) error {
 	return f.err
 }
 
-func fakeDockerProvider() docker.DockerProvider {
+func (f *dockerClientMock) ContainerList(
+	ctx context.Context,
+	options client.ContainerListOptions,
+) ([]container.Summary, error) {
+	filteredContainers := f.containers
+
+	labelFilters := options.Filters["label"]
+
+	if len(labelFilters) == 0 {
+		return filteredContainers, f.err
+	}
+
+	filteredContainers = nil
+
+	for _, ctr := range f.containers {
+		for labelFilter := range labelFilters {
+			key, value, found := strings.Cut(labelFilter, "=")
+
+			if found {
+				if ctr.Labels[key] == value {
+					filteredContainers = append(filteredContainers, ctr)
+					break
+				}
+			} else {
+				if _, ok := ctr.Labels[key]; ok {
+					filteredContainers = append(filteredContainers, ctr)
+					break
+				}
+			}
+		}
+	}
+
+	return filteredContainers, f.err
+}
+
+func realDockerProvider() docker.DockerProvider {
+	return docker.NewDockerProvider()
+}
+
+func stillDockerProvider() docker.DockerProvider {
 	return &dockerProviderMock{
-		client: &dockerClientMock{},
+		client: &dockerClientMock{
+			containers: []container.Summary{},
+		},
+	}
+}
+
+func fakeDockerProvider(
+	containers []container.Summary,
+) docker.DockerProvider {
+	return &dockerProviderMock{
+		client: &dockerClientMock{
+			containers: containers,
+		},
 	}
 }
 

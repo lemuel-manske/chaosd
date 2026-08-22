@@ -6,6 +6,7 @@ import (
 
 	"chaosd/cli/internal/docker"
 
+	"github.com/moby/moby/client"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v4"
 )
@@ -45,10 +46,6 @@ func runLoadCmd(cmd *cobra.Command, args []string, dockerProvider docker.DockerP
 		return err
 	}
 
-	for service := range compose.Services {
-		fmt.Fprintln(cmd.OutOrStdout(), service)
-	}
-
 	cli, err := dockerProvider.NewClient()
 
 	if err != nil {
@@ -59,6 +56,30 @@ func runLoadCmd(cmd *cobra.Command, args []string, dockerProvider docker.DockerP
 
 	if err != nil {
 		return fmt.Errorf("failed to ping docker daemon: %v", err)
+	}
+
+	for service := range compose.Services {
+		filters := client.Filters{}
+
+		labelFilter := fmt.Sprintf("com.docker.compose.service=%s", service)
+		filters.Add("label", labelFilter)
+
+		containers, err := cli.ContainerList(cmd.Context(), client.ContainerListOptions{
+			Filters: filters,
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to list containers: %v", err)
+		}
+
+		if len(containers) == 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s -> missing\n", service)
+			continue
+		}
+
+		containerName := containers[0].Names[0]
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%s -> %s running\n", service, containerName)
 	}
 
 	return nil

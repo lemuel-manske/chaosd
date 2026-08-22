@@ -3,25 +3,26 @@ package cli
 import (
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()))
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 0")
 }
 
 func TestLoadCmdWithMultipleArgsThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), "file1", "file2")
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), "file1", "file2")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 2")
 }
 
 func TestLoadCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), "file1")
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), "file1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "file file1 does not exist")
@@ -34,7 +35,7 @@ func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
     ports: [
 `)
 
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
@@ -46,7 +47,7 @@ func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
     image: nginx
 `)
 
-	_, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
+	_, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
 
 	assert.NoError(t, err)
 }
@@ -54,7 +55,7 @@ func TestLoadCmdWithValidYamlThenSucceed(t *testing.T) {
 func TestLoadCmdWithValidYamlButNoServicesThenFail(t *testing.T) {
 	file := stubFile(t, `version: "3.8"`)
 
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "no services defined in file")
@@ -68,7 +69,7 @@ func TestLoadCmdWithValidYamlThenPrintServiceNames(t *testing.T) {
     image: postgres
 `)
 
-	output, err := executeCommand(t, NewLoadCmd(fakeDockerProvider()), file)
+	output, err := executeCommand(t, NewLoadCmd(stillDockerProvider()), file)
 
 	assert.NoError(t, err)
 	assert.Contains(t, output, "web")
@@ -87,4 +88,79 @@ func TestLoadCmdWithValidYamlButUnreachableDockerThenFail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to ping docker daemon")
+}
+
+func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
+	file := stubFile(t, `services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(realDockerProvider())
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web")
+}
+
+func TestLoadCmdWithValidYamlButNoContainersRunningThenPrintMissingContainer(t *testing.T) {
+	file := stubFile(t, `services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> missing")
+}
+
+func TestLoadCmdWithValidYamlAndContainerIsRunningButNotLaunchedFromComposeThenPrintMissingContainer(t *testing.T) {
+	file := stubFile(t, `services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> missing")
+}
+
+func TestLoadCmdWithValidYamlAndRunningContainersThenPrintRunningContainer(t *testing.T) {
+	file := stubFile(t, `services:
+  web:
+    image: nginx
+`)
+
+	cmd := NewLoadCmd(fakeDockerProvider(
+		[]container.Summary{
+			{
+				ID:    "1234567890",
+				Names: []string{"chaosd-app-1"},
+				Labels: map[string]string{
+					"com.docker.compose.service": "web",
+				},
+			},
+		},
+	))
+
+	output, err := executeCommand(t, cmd, file)
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "web -> chaosd-app-1 running")
 }
