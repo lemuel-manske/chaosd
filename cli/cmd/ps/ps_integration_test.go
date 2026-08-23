@@ -9,8 +9,8 @@ import (
 )
 
 func TestPsWithRealCompose(t *testing.T) {
-	app := test.StartComposeApp(t, `project1`, `
-name: project1
+	app := test.StartComposeApp(t, `project-ps-1`, `
+name: project-ps-1
 services:
   web:
     image: nginx:alpine
@@ -24,8 +24,8 @@ services:
 }
 
 func TestPsWithMultipleProjects(t *testing.T) {
-	app1 := test.StartComposeApp(t, `project1`, `
-name: project1
+	app1 := test.StartComposeApp(t, `project-ps-1`, `
+name: project-ps-1
 services:
   web:
     image: nginx:alpine
@@ -48,8 +48,8 @@ services:
 }
 
 func TestPsWithMultipleReplicas(t *testing.T) {
-	app := test.StartComposeApp(t, `project1`, `
-name: project1
+	app := test.StartComposeApp(t, `project-ps-1`, `
+name: project-ps-1
 services:
   web:
     image: nginx:alpine
@@ -65,8 +65,8 @@ services:
 }
 
 func TestPsWithStoppedContainer(t *testing.T) {
-	app := test.StartComposeApp(t, `project1`, `
-name: project1
+	app := test.StartComposeApp(t, `project-ps-1`, `
+name: project-ps-1
 services:
   web:
     image: nginx:alpine
@@ -82,8 +82,8 @@ services:
 }
 
 func TestPsWithMissingContainer(t *testing.T) {
-	app := test.StartComposeApp(t, `project1`, `
-name: project1
+	app := test.StartComposeApp(t, `project-ps-1`, `
+name: project-ps-1
 services:
   web:
     image: nginx:alpine

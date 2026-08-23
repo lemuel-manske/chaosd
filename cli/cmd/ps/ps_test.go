@@ -44,7 +44,7 @@ func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
 }
 
 func TestPsCmdWithRunningContainerThenPrintTopology(t *testing.T) {
-	file := test.File(t, `name: project1
+	file := test.File(t, `name: project-ps-1
 services:
   web:
     image: nginx
@@ -57,7 +57,7 @@ services:
 				Names: []string{"chaosd-app-1"},
 				Labels: map[string]string{
 					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project1",
+					"com.docker.compose.project": "project-ps-1",
 				},
 				State: "running",
 			},

@@ -37,3 +37,11 @@ func (d *dockerClient) ContainerList(
 
 	return list.Items, err
 }
+
+func (d *dockerClient) RestartContainer(
+	ctx context.Context,
+	containerID string,
+	options client.ContainerRestartOptions,
+) (client.ContainerRestartResult, error) {
+	return d.cli.ContainerRestart(ctx, containerID, options)
+}

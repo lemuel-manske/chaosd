@@ -86,18 +86,30 @@ func LoadTopology(
 	return &topology, nil
 }
 
-func PrintTopology(topology *Topology, stdout io.Writer) {
+func (t *Topology) NodesByService(service string) []Node {
+	var nodes []Node
+
+	for _, node := range t.Nodes {
+		if node.Service == service {
+			nodes = append(nodes, node)
+		}
+	}
+
+	return nodes
+}
+
+func (t *Topology) Print(stdout io.Writer) {
 	reportFormat := "%-20s %-30s %-10s\n"
 	missingState := "missing"
 
 	fmt.Fprintf(stdout, reportFormat, "Service", "Container Name", "State")
 	fmt.Fprintf(stdout, reportFormat, "-------", "--------------", "-----")
 
-	for _, node := range topology.Nodes {
+	for _, node := range t.Nodes {
 		fmt.Fprintf(stdout, reportFormat, node.Service, node.ContainerName, node.State)
 	}
 
-	if len(topology.Nodes) == 0 {
+	if len(t.Nodes) == 0 {
 		fmt.Fprintf(stdout, reportFormat, missingState, "", "")
 	}
 }

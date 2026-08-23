@@ -24,6 +24,12 @@ type DockerClient interface {
 		ctx context.Context,
 		options client.ContainerListOptions,
 	) ([]container.Summary, error)
+
+	RestartContainer(
+		ctx context.Context,
+		containerID string,
+		options client.ContainerRestartOptions,
+	) (client.ContainerRestartResult, error)
 }
 
 type DockerProvider interface {

@@ -9,8 +9,6 @@ import (
 func NewLoadCmd(docker docker.DockerProvider) *cobra.Command {
 	return &cobra.Command{
 		Use:   "load",
-		Short: "Load a compose file",
-		Long:  `Load a Docker compose file into chaosd daemon.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLoadCmd(cmd, args, docker)
 		},

@@ -22,7 +22,7 @@ func doPs(
 		return err
 	}
 
-	topology.PrintTopology(t, stdout)
+	t.Print(stdout)
 
 	return nil
 }
