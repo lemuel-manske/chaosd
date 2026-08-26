@@ -3,54 +3,55 @@ package ps
 import (
 	"testing"
 
-	"chaosd/cli/test"
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPsCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewPsCmd(test.EmptyDockerProvider()))
+	output, err := clitest.ExecuteCommand(t, NewPsCmd(dockertest.EmptyDockerProvider()))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 0")
 }
 
 func TestPsCmdWithMultipleArgsThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewPsCmd(test.EmptyDockerProvider()), "file1", "file2")
+	output, err := clitest.ExecuteCommand(t, NewPsCmd(dockertest.EmptyDockerProvider()), "file1", "file2")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 2")
 }
 
 func TestPsCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewPsCmd(test.EmptyDockerProvider()), "file1")
+	output, err := clitest.ExecuteCommand(t, NewPsCmd(dockertest.EmptyDockerProvider()), "file1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "file file1 does not exist")
 }
 
 func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := test.File(t, `services:
+	file := clitest.File(t, `services:
   app:
     image: nginx
     ports: [
 `)
 
-	output, err := test.ExecuteCommand(t, NewPsCmd(test.EmptyDockerProvider()), file)
+	output, err := clitest.ExecuteCommand(t, NewPsCmd(dockertest.EmptyDockerProvider()), file)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
 }
 
 func TestPsCmdWithRunningContainerThenPrintTopology(t *testing.T) {
-	file := test.File(t, `name: project-ps-1
+	file := clitest.File(t, `name: project-ps-1
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewPsCmd(test.FakeDockerProvider(
+	cmd := NewPsCmd(dockertest.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -64,7 +65,7 @@ services:
 		},
 	))
 
-	output, err := test.ExecuteCommand(t, cmd, file)
+	output, err := clitest.ExecuteCommand(t, cmd, file)
 
 	assert.NoError(t, err)
 

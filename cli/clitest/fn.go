@@ -1,4 +1,4 @@
-package test
+package clitest
 
 import (
 	"bytes"
@@ -33,16 +33,4 @@ func File(t *testing.T, content string) string {
 	require.NoError(t, err)
 
 	return file
-}
-
-func RandomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	b := make([]byte, n)
-
-	for i := range b {
-		b[i] = letters[i%len(letters)]
-	}
-
-	return string(b)
 }

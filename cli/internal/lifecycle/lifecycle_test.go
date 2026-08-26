@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"chaosd/cli/internal/topology"
-	"chaosd/cli/test"
+
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRestartLifecycle(t *testing.T) {
-	dockerClient := &test.DockerClientMock{}
+	dockerClient := &dockertest.DockerClientMock{}
 
 	l := NewLifecycle(dockerClient)
 
@@ -35,7 +36,7 @@ func TestRestartLifecycle(t *testing.T) {
 }
 
 func TestRestartLifecycleWithError(t *testing.T) {
-	dockerClient := &test.DockerClientMock{
+	dockerClient := &dockertest.DockerClientMock{
 		RestartErr: map[string]error{
 			"1234567890": assert.AnError,
 		},

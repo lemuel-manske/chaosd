@@ -3,13 +3,13 @@ package root
 import (
 	"testing"
 
-	"chaosd/cli/test"
+	"chaosd/cli/clitest"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRootCmdGeneratesNoErrors(t *testing.T) {
-	_, err := test.ExecuteCommand(t, NewRootCmd())
+	_, err := clitest.ExecuteCommand(t, NewRootCmd())
 
 	assert.NoError(t, err)
 }

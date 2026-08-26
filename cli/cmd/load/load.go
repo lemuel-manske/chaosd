@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
@@ -16,18 +18,31 @@ const missingState = "missing"
 const reportFormat = "%s -> %s%s\n"
 
 func doLoad(
+	sessionStore *session.Store,
+	composeFileAbsPath string,
 	compose *docker.ComposeFile,
 	ctx context.Context,
 	stdout io.Writer,
 	cli docker.DockerClient,
 ) error {
-	t, err := topology.LoadTopology(compose, ctx, cli)
+	_, err := topology.LoadTopology(compose, ctx, cli)
 
 	if err != nil {
 		return err
 	}
 
-	t.Print(stdout)
+	projectName := compose.Name
+
+	s, err := sessionStore.Create(
+		projectName,
+		composeFileAbsPath,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(stdout, s.ID)
 
 	return nil
 }
@@ -35,9 +50,12 @@ func doLoad(
 func runLoadCmd(
 	cmd *cobra.Command,
 	args []string,
+	sessionStore *session.Store,
 	dockerProvider docker.DockerProvider,
 ) error {
-	composeFile, err := docker.Parse(args[0])
+	filePath := args[0]
+
+	composeFile, err := docker.Parse(filePath)
 
 	if err != nil {
 		return err
@@ -52,7 +70,11 @@ func runLoadCmd(
 	stdout := cmd.OutOrStdout()
 	ctx := cmd.Context()
 
+	composeFileAbsPath, err := filepath.Abs(filePath)
+
 	return doLoad(
+		sessionStore,
+		composeFileAbsPath,
 		composeFile,
 		ctx,
 		stdout,

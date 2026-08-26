@@ -1,15 +1,17 @@
 package ps
 
 import (
-	"chaosd/cli/test"
 	"testing"
+
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPsWithRealCompose(t *testing.T) {
-	app := test.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
@@ -20,18 +22,18 @@ services:
 
 	require.NoError(t, err)
 
-	test.AssertLineCountContains(t, output, 1, "web", "running")
+	clitest.AssertLineCountContains(t, output, 1, "web", "running")
 }
 
 func TestPsWithMultipleProjects(t *testing.T) {
-	app1 := test.StartComposeApp(t, `project-ps-1`, `
+	app1 := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
     image: nginx:alpine
 `)
 
-	test.StartComposeApp(t, `project2`, `
+	dockertest.StartComposeApp(t, `project2`, `
 name: project2
 services:
   web:
@@ -42,13 +44,13 @@ services:
 
 	require.NoError(t, err)
 
-	test.AssertLineCountContains(t, output, 1, "web", "running")
+	clitest.AssertLineCountContains(t, output, 1, "web", "running")
 
 	assert.NotContains(t, output, "project2")
 }
 
 func TestPsWithMultipleReplicas(t *testing.T) {
-	app := test.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
@@ -61,47 +63,47 @@ services:
 
 	require.NoError(t, err)
 
-	test.AssertLineCountContains(t, output, 3, "web", "running")
+	clitest.AssertLineCountContains(t, output, 3, "web", "running")
 }
 
 func TestPsWithStoppedContainer(t *testing.T) {
-	app := test.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
     image: nginx:alpine
 `)
 
-	test.StopContainerByServiceName(t, app.ProjectName, "web")
+	dockertest.StopContainerByServiceName(t, app.ProjectName, "web")
 
 	output, err := runPs(t, app.ComposeFile)
 
 	require.NoError(t, err)
 
-	test.AssertLineCountContains(t, output, 1, "web", "exited")
+	clitest.AssertLineCountContains(t, output, 1, "web", "exited")
 }
 
 func TestPsWithMissingContainer(t *testing.T) {
-	app := test.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
     image: nginx:alpine
 `)
 
-	test.RemoveContainerByServiceName(t, app.ProjectName, "web")
+	dockertest.RemoveContainerByServiceName(t, app.ProjectName, "web")
 
 	output, err := runPs(t, app.ComposeFile)
 
 	require.NoError(t, err)
 
-	test.AssertLineCountContains(t, output, 1, "web", "missing")
+	clitest.AssertLineCountContains(t, output, 1, "web", "missing")
 }
 
 func runPs(t *testing.T, composeFile string) (string, error) {
 	t.Helper()
 
-	cmd := NewPsCmd(test.RealDockerProvider())
+	cmd := NewPsCmd(dockertest.RealDockerProvider())
 
-	return test.ExecuteCommand(t, cmd, composeFile)
+	return clitest.ExecuteCommand(t, cmd, composeFile)
 }

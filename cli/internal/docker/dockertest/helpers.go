@@ -1,4 +1,4 @@
-package test
+package dockertest
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"chaosd/cli/internal/docker"
+
+	"chaosd/cli/clitest"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -124,7 +126,7 @@ type ComposeApp struct {
 func writeComposeFile(t *testing.T, composeYAML string) string {
 	t.Helper()
 
-	file := File(t, composeYAML)
+	file := clitest.File(t, composeYAML)
 
 	return file
 }

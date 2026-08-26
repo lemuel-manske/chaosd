@@ -1,15 +1,17 @@
 package restart
 
 import (
-	"chaosd/cli/test"
 	"testing"
+
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRestartCmdWithNonExistentServiceThenFail(t *testing.T) {
-	app := test.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -24,7 +26,7 @@ services:
 }
 
 func TestRestartCmdWithExistingServiceThenSucceed(t *testing.T) {
-	app := test.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -39,7 +41,7 @@ services:
 }
 
 func TestRestartCmdWithMultipleReplicasThenSucceed(t *testing.T) {
-	app := test.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -58,23 +60,23 @@ services:
 }
 
 func TestRestartCmdEnsureServiceIsIndeedRestarted(t *testing.T) {
-	app := test.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
     image: nginx:alpine
 `)
 
-	containerBeforeRestart := test.ContainerByServiceName(t, "project-restart-1", "web")
-	beforeInspect := test.InspectContainer(t, containerBeforeRestart.GetContainerID())
+	containerBeforeRestart := dockertest.ContainerByServiceName(t, "project-restart-1", "web")
+	beforeInspect := dockertest.InspectContainer(t, containerBeforeRestart.GetContainerID())
 
 	output, err := runRestart(t, app.ComposeFile, "web")
 
 	require.NoError(t, err)
 	assert.Contains(t, output, "project-restart-1-web-1")
 
-	containerAfterRestart := test.ContainerByServiceName(t, "project-restart-1", "web")
-	afterInspect := test.InspectContainer(t, containerAfterRestart.GetContainerID())
+	containerAfterRestart := dockertest.ContainerByServiceName(t, "project-restart-1", "web")
+	afterInspect := dockertest.InspectContainer(t, containerAfterRestart.GetContainerID())
 
 	assert.Equal(t, containerBeforeRestart.GetContainerID(), containerAfterRestart.GetContainerID())
 
@@ -84,7 +86,7 @@ services:
 func runRestart(t *testing.T, composeFile string, serviceName string) (string, error) {
 	t.Helper()
 
-	cmd := NewRestartCmd(test.RealDockerProvider())
+	cmd := NewRestartCmd(dockertest.RealDockerProvider())
 
-	return test.ExecuteCommand(t, cmd, composeFile, serviceName)
+	return clitest.ExecuteCommand(t, cmd, composeFile, serviceName)
 }

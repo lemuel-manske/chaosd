@@ -1,24 +1,48 @@
 package load
 
 import (
-	"chaosd/cli/test"
+	"strings"
 	"testing"
+
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/session/sessiontest"
+
+	"chaosd/cli/internal/session"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
-	file := test.File(t, `name: test
+	app := dockertest.StartComposeApp(t, `project-load-1`, `name: project-load-1
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewLoadCmd(test.RealDockerProvider())
+	sessionStore := sessiontest.StubSessionStore(t)
 
-	output, err := test.ExecuteCommand(t, cmd, file)
+	output, err := runLoad(t, sessionStore, app.ComposeFile)
 
 	assert.NoError(t, err)
-	assert.Contains(t, output, "web")
-	assert.Contains(t, output, "missing")
+
+	sessionID := strings.TrimSpace(output)
+
+	s, err := sessionStore.Get(sessionID)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, `project-load-1`, s.Project)
+	assert.Equal(t, app.ComposeFile, s.ComposeFile)
+}
+
+func runLoad(t *testing.T, sessionStore *session.Store, composeFile string) (string, error) {
+	t.Helper()
+
+	cmd := NewLoadCmd(
+		sessionStore,
+		dockertest.RealDockerProvider(),
+	)
+
+	return clitest.ExecuteCommand(t, cmd, composeFile)
 }

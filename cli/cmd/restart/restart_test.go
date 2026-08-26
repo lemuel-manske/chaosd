@@ -4,75 +4,76 @@ import (
 	"fmt"
 	"testing"
 
-	"chaosd/cli/test"
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRestartCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()))
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 0")
 }
 
 func TestRestartCmdWithOneArgThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()), "file1")
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 1")
 }
 
 func TestRestarTCmdWithThreeArgsThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()), "file1", "service1", "extra")
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1", "service1", "extra")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 3")
 }
 
 func TestRestartCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()), "file1", "service1")
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1", "service1")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "file file1 does not exist")
 }
 
 func TestRestartCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := test.File(t, `services:
+	file := clitest.File(t, `services:
   app:
     image: nginx
     ports: [
 `)
 
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()), file, "app")
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), file, "app")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
 }
 
 func TestRestartCmdWithNonExistentServiceAndNoContainersRunningThenFail(t *testing.T) {
-	file := test.File(t, `name: project-restart-1
+	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
 
-	output, err := test.ExecuteCommand(t, NewRestartCmd(test.EmptyDockerProvider()), file, "app")
+	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), file, "app")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "service app not found in project project-restart-1")
 }
 
 func TestRestartCmdWithRunningContainerThenFailToRestart(t *testing.T) {
-	file := test.File(t, `name: project-restart-1
+	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
 
-	dockerProvider := &test.DockerProviderMock{
-		Client: &test.DockerClientMock{
+	dockerProvider := &dockertest.DockerProviderMock{
+		Client: &dockertest.DockerClientMock{
 			Containers: []container.Summary{
 				{
 					ID:    "1",
@@ -93,7 +94,7 @@ services:
 
 	cmd := NewRestartCmd(dockerProvider)
 
-	output, err := test.ExecuteCommand(t, cmd, file, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
 
 	assert.Error(t, err)
 
@@ -101,7 +102,7 @@ services:
 }
 
 func TestRestartCmdWithMultipleReplicasThenFailToRestartOne(t *testing.T) {
-	file := test.File(t, `name: project-restart-1
+	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
@@ -109,8 +110,8 @@ services:
       replicas: 3
 `)
 
-	dockerProvider := &test.DockerProviderMock{
-		Client: &test.DockerClientMock{
+	dockerProvider := &dockertest.DockerProviderMock{
+		Client: &dockertest.DockerClientMock{
 			Containers: []container.Summary{
 				{
 					ID:    "1",
@@ -149,7 +150,7 @@ services:
 
 	cmd := NewRestartCmd(dockerProvider)
 
-	output, err := test.ExecuteCommand(t, cmd, file, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
 
 	assert.Error(t, err)
 
@@ -159,13 +160,13 @@ services:
 }
 
 func TestRestartCmdWithRunningContainerThenPrintContainerName(t *testing.T) {
-	file := test.File(t, `name: project-restart-1
+	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
 
-	cmd := NewRestartCmd(test.FakeDockerProvider(
+	cmd := NewRestartCmd(dockertest.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -179,7 +180,7 @@ services:
 		},
 	))
 
-	output, err := test.ExecuteCommand(t, cmd, file, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
 
 	assert.NoError(t, err)
 

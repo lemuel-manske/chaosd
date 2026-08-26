@@ -16,76 +16,74 @@ type Session struct {
 	ComposeFile string `json:"compose_file"`
 }
 
-func sessionsDir() (string, error) {
-	home, err := os.UserHomeDir()
+const sessionFileExt = ".json"
 
-	if err != nil {
-		return "", fmt.Errorf("get user home dir: %w", err)
-	}
-
-	return filepath.Join(home, ".chaosd", "sessions"), nil
+type Store struct {
+	dir string
 }
 
-func sessionPath(id string) (string, error) {
+func NewStore(dir string) *Store {
+	return &Store{dir: dir}
+}
+
+func DefaultStore() (*Store, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("get user home dir: %w", err)
+	}
+
+	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
+}
+
+func (s *Store) sessionPath(id string) (string, error) {
 	if id == "" {
 		return "", errors.New("session id cannot be empty")
 	}
 
-	dir, err := sessionsDir()
-
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(dir, id+".json"), nil
+	return filepath.Join(s.dir, id+sessionFileExt), nil
 }
 
-func GetSession(id string) (*Session, error) {
-	path, err := sessionPath(id)
-
+func (s *Store) Get(id string) (*Session, error) {
+	path, err := s.sessionPath(id)
 	if err != nil {
 		return nil, err
 	}
 
 	data, err := os.ReadFile(path)
-
 	if err != nil {
 		return nil, fmt.Errorf("read session %q: %w", id, err)
 	}
 
-	var s Session
-
-	if err := json.Unmarshal(data, &s); err != nil {
+	var session Session
+	if err := json.Unmarshal(data, &session); err != nil {
 		return nil, fmt.Errorf("decode session %q: %w", id, err)
 	}
 
-	return &s, nil
+	return &session, nil
 }
 
-func CreateSession(
+func (s *Store) Create(
 	projectName string,
 	composeFileAbsPath string,
 ) (*Session, error) {
 	id := uuid.NewString()
 
-	path, err := sessionPath(id)
-
+	path, err := s.sessionPath(id)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(s.dir, 0700); err != nil {
 		return nil, fmt.Errorf("create sessions directory: %w", err)
 	}
 
-	s := &Session{
+	session := &Session{
 		ID:          id,
 		Project:     projectName,
 		ComposeFile: composeFileAbsPath,
 	}
 
-	data, err := json.MarshalIndent(s, "", "  ")
-
+	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encode session: %w", err)
 	}
@@ -94,12 +92,11 @@ func CreateSession(
 		return nil, fmt.Errorf("write session: %w", err)
 	}
 
-	return s, nil
+	return session, nil
 }
 
-func DeleteSession(id string) error {
-	path, err := sessionPath(id)
-
+func (s *Store) Delete(id string) error {
+	path, err := s.sessionPath(id)
 	if err != nil {
 		return err
 	}

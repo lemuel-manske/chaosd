@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"chaosd/cli/internal/docker"
-	"chaosd/cli/test"
+
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadTopologyWithValidComposeFileAndRunningContainer(t *testing.T) {
-	dockerProvider := test.FakeDockerProvider(
+	dockerProvider := dockertest.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1234567890",
@@ -63,7 +64,7 @@ func TestLoadTopologyWithValidComposeFileAndRunningContainer(t *testing.T) {
 }
 
 func TestLoadTopologyWithValidComposeFileAndNoRunningContainer(t *testing.T) {
-	dockerProvider := test.FakeDockerProvider(
+	dockerProvider := dockertest.FakeDockerProvider(
 		[]container.Summary{},
 	)
 
@@ -102,7 +103,7 @@ func TestLoadTopologyWithValidComposeFileAndNoRunningContainer(t *testing.T) {
 }
 
 func TestLoadTopologyWithValidComposeFileAndMultipleRunningContainers(t *testing.T) {
-	dockerProvider := test.FakeDockerProvider(
+	dockerProvider := dockertest.FakeDockerProvider(
 		[]container.Summary{
 			{
 				ID:    "1",

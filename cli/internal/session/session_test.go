@@ -1,17 +1,20 @@
-package session
+package session_test
 
 import (
 	"testing"
 
-	"chaosd/cli/test"
+	"chaosd/cli/clitest"
+	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSessionIsPersisted(t *testing.T) {
-	f := test.File(t, `name: project`)
+	f := clitest.File(t, `name: project`)
 
-	s, err := CreateSession(`project1`, f)
+	store := sessiontest.StubSessionStore(t)
+
+	s, err := store.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
@@ -19,13 +22,15 @@ func TestSessionIsPersisted(t *testing.T) {
 }
 
 func TestGetSession(t *testing.T) {
-	f := test.File(t, `name: project`)
+	f := clitest.File(t, `name: project`)
 
-	s, err := CreateSession(`project1`, f)
+	store := sessiontest.StubSessionStore(t)
+
+	s, err := store.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
-	s2, err := GetSession(s.ID)
+	s2, err := store.Get(s.ID)
 
 	assert.NoError(t, err)
 
@@ -35,23 +40,27 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestGetSessionNotFound(t *testing.T) {
-	_, err := GetSession(`nonexistent`)
+	store := sessiontest.StubSessionStore(t)
+
+	_, err := store.Get(`nonexistent`)
 
 	assert.Error(t, err)
 }
 
 func TestDeleteSession(t *testing.T) {
-	f := test.File(t, `name: project`)
+	f := clitest.File(t, `name: project`)
 
-	s, err := CreateSession(`project1`, f)
+	store := sessiontest.StubSessionStore(t)
 
-	assert.NoError(t, err)
-
-	err = DeleteSession(s.ID)
+	s, err := store.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
-	_, err = GetSession(s.ID)
+	err = store.Delete(s.ID)
+
+	assert.NoError(t, err)
+
+	_, err = store.Get(s.ID)
 
 	assert.Error(t, err)
 }

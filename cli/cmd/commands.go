@@ -8,6 +8,7 @@ import (
 	"chaosd/cli/cmd/ps"
 	"chaosd/cli/cmd/restart"
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
 )
@@ -15,7 +16,15 @@ import (
 func Init(rootCmd *cobra.Command) {
 	dockerProvider := docker.NewDockerProvider()
 
-	rootCmd.AddCommand(load.NewLoadCmd(dockerProvider))
+	sessionStore, err := session.DefaultStore()
+
+	if err != nil {
+		msg := fmt.Errorf("failed to create session store: %v", err)
+
+		panic(msg)
+	}
+
+	rootCmd.AddCommand(load.NewLoadCmd(sessionStore, dockerProvider))
 	rootCmd.AddCommand(ps.NewPsCmd(dockerProvider))
 	rootCmd.AddCommand(restart.NewRestartCmd(dockerProvider))
 }
