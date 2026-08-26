@@ -123,10 +123,10 @@ services:
 		))
 
 	output, err := clitest.ExecuteCommand(t, cmd, f)
-	sessionID := strings.TrimSpace(output)
 
 	assert.NoError(t, err)
 
+	sessionID := strings.TrimSpace(output)
 	_, err = uuid.Parse(sessionID)
 
 	assert.NoError(t, err)
@@ -137,4 +137,41 @@ services:
 
 	assert.Equal(t, "project-load-1", s.Project)
 	assert.Equal(t, f, s.ComposeFile)
+}
+
+func TestLoadCmdCreatesTwoSessionForSameComposeFile(t *testing.T) {
+	f := clitest.File(t, `name: project-load-1
+services:
+  web:
+    image: nginx
+`)
+
+	sessionStore := sessiontest.StubSessionStore(t)
+
+	cmd := NewLoadCmd(
+		sessionStore,
+		dockertest.FakeDockerProvider(
+			[]container.Summary{
+				{
+					ID:    "1234567890",
+					Names: []string{"chaosd-app-1"},
+					Labels: map[string]string{
+						"com.docker.compose.service": "web",
+						"com.docker.compose.project": "project-load-1",
+					},
+					State: "running",
+				},
+			},
+		))
+
+	output1, err := clitest.ExecuteCommand(t, cmd, f)
+	assert.NoError(t, err)
+
+	output2, err := clitest.ExecuteCommand(t, cmd, f)
+	assert.NoError(t, err)
+
+	sessionID1 := strings.TrimSpace(output1)
+	sessionID2 := strings.TrimSpace(output2)
+
+	assert.NotEqual(t, sessionID1, sessionID2)
 }
