@@ -2,15 +2,19 @@ package restart
 
 import (
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
 )
 
-func NewRestartCmd(docker docker.DockerProvider) *cobra.Command {
+func NewRestartCmd(
+	sessionStore *session.Store,
+	docker docker.DockerProvider,
+) *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart",
+		Use: "restart",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRestartCmd(cmd, args, docker)
+			return runRestartCmd(cmd, args, sessionStore, docker)
 		},
 		Args: cobra.ExactArgs(2),
 	}

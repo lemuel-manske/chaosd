@@ -5,6 +5,7 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -103,7 +104,13 @@ services:
 func runPs(t *testing.T, composeFile string) (string, error) {
 	t.Helper()
 
-	cmd := NewPsCmd(dockertest.RealDockerProvider())
+	store := sessiontest.StubSessionStore(t)
 
-	return clitest.ExecuteCommand(t, cmd, composeFile)
+	s, err := store.Create("project", composeFile)
+
+	require.NoError(t, err)
+
+	cmd := NewPsCmd(store, dockertest.RealDockerProvider())
+
+	return clitest.ExecuteCommand(t, cmd, s.ID)
 }

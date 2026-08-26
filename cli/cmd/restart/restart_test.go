@@ -4,39 +4,57 @@ import (
 	"fmt"
 	"testing"
 
+	"chaosd/cli/internal/session"
+
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRestartCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()))
+	output, err := executeRestart(t, sessiontest.StubSessionStore(t))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 0")
 }
 
 func TestRestartCmdWithOneArgThenFail(t *testing.T) {
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1")
+	output, err := executeRestart(
+		t,
+		sessiontest.StubSessionStore(t),
+		"session1",
+	)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 1")
 }
 
-func TestRestarTCmdWithThreeArgsThenFail(t *testing.T) {
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1", "service1", "extra")
+func TestRestartCmdWithThreeArgsThenFail(t *testing.T) {
+	output, err := executeRestart(
+		t,
+		sessiontest.StubSessionStore(t),
+		"session1",
+		"service1",
+		"extra",
+	)
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 2 arg(s), received 3")
 }
 
-func TestRestartCmdWithNonExistentFileThenFail(t *testing.T) {
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), "file1", "service1")
+func TestRestartCmdWithNonExistentSessionThenFail(t *testing.T) {
+	output, err := executeRestart(
+		t,
+		sessiontest.StubSessionStore(t),
+		"session1",
+		"service1",
+	)
 
 	assert.Error(t, err)
-	assert.Contains(t, output, "file file1 does not exist")
+	assert.Contains(t, output, `read session "session1"`)
 }
 
 func TestRestartCmdWithInvalidYamlThenFail(t *testing.T) {
@@ -46,7 +64,7 @@ func TestRestartCmdWithInvalidYamlThenFail(t *testing.T) {
     ports: [
 `)
 
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), file, "app")
+	output, err := executeRestartSession(t, file, "app")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "failed to parse file")
@@ -59,7 +77,7 @@ services:
     image: nginx
 `)
 
-	output, err := clitest.ExecuteCommand(t, NewRestartCmd(dockertest.EmptyDockerProvider()), file, "app")
+	output, err := executeRestartSession(t, file, "app")
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "service app not found in project project-restart-1")
@@ -92,9 +110,11 @@ services:
 		},
 	}
 
-	cmd := NewRestartCmd(dockerProvider)
+	store, sessionID := restartSession(t, file)
 
-	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
+	cmd := NewRestartCmd(store, dockerProvider)
+
+	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
 
 	assert.Error(t, err)
 
@@ -148,9 +168,11 @@ services:
 		},
 	}
 
-	cmd := NewRestartCmd(dockerProvider)
+	store, sessionID := restartSession(t, file)
 
-	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
+	cmd := NewRestartCmd(store, dockerProvider)
+
+	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
 
 	assert.Error(t, err)
 
@@ -166,23 +188,66 @@ services:
     image: nginx
 `)
 
-	cmd := NewRestartCmd(dockertest.FakeDockerProvider(
-		[]container.Summary{
-			{
-				ID:    "1234567890",
-				Names: []string{"chaosd-app-1"},
-				Labels: map[string]string{
-					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project-restart-1",
-				},
-				State: "running",
-			},
-		},
-	))
+	store, sessionID := restartSession(t, file)
 
-	output, err := clitest.ExecuteCommand(t, cmd, file, "web")
+	cmd := NewRestartCmd(
+		store,
+		dockertest.FakeDockerProvider(
+			[]container.Summary{
+				{
+					ID:    "1234567890",
+					Names: []string{"chaosd-app-1"},
+					Labels: map[string]string{
+						"com.docker.compose.service": "web",
+						"com.docker.compose.project": "project-restart-1",
+					},
+					State: "running",
+				},
+			},
+		),
+	)
+
+	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
 
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "chaosd-app-1 restarted")
+}
+
+func executeRestart(
+	t *testing.T,
+	store *session.Store,
+	args ...string,
+) (string, error) {
+	t.Helper()
+
+	return clitest.ExecuteCommand(
+		t,
+		NewRestartCmd(store, dockertest.EmptyDockerProvider()),
+		args...,
+	)
+}
+
+func executeRestartSession(
+	t *testing.T,
+	composeFile string,
+	serviceName string,
+) (string, error) {
+	t.Helper()
+
+	store, sessionID := restartSession(t, composeFile)
+
+	return executeRestart(t, store, sessionID, serviceName)
+}
+
+func restartSession(t *testing.T, composeFile string) (*session.Store, string) {
+	t.Helper()
+
+	store := sessiontest.StubSessionStore(t)
+
+	s, err := store.Create("project", composeFile)
+
+	assert.NoError(t, err)
+
+	return store, s.ID
 }

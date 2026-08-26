@@ -25,8 +25,8 @@ func Init(rootCmd *cobra.Command) {
 	}
 
 	rootCmd.AddCommand(load.NewLoadCmd(sessionStore, dockerProvider))
-	rootCmd.AddCommand(ps.NewPsCmd(dockerProvider))
-	rootCmd.AddCommand(restart.NewRestartCmd(dockerProvider))
+	rootCmd.AddCommand(ps.NewPsCmd(sessionStore, dockerProvider))
+	rootCmd.AddCommand(restart.NewRestartCmd(sessionStore, dockerProvider))
 }
 
 func Execute(rootCmd *cobra.Command) {

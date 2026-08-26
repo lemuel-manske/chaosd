@@ -7,6 +7,7 @@ import (
 
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/lifecycle"
+	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
@@ -71,9 +72,16 @@ func doRestart(
 func runRestartCmd(
 	cmd *cobra.Command,
 	args []string,
+	sessionStore *session.Store,
 	dockerProvider docker.DockerProvider,
 ) error {
-	composeFile, err := docker.Parse(args[0])
+	s, err := sessionStore.Get(args[0])
+
+	if err != nil {
+		return err
+	}
+
+	composeFile, err := docker.Parse(s.ComposeFile)
 
 	if err != nil {
 		return err
