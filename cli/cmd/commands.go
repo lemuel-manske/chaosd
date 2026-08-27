@@ -16,7 +16,7 @@ import (
 func Init(rootCmd *cobra.Command) {
 	dockerProvider := docker.NewDockerProvider()
 
-	sessionStore, err := session.DefaultStore()
+	sessionStore, err := session.NewDefaultStore()
 
 	if err != nil {
 		msg := fmt.Errorf("failed to create session store: %v", err)

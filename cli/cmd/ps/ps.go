@@ -18,7 +18,7 @@ func doPs(
 	stdout io.Writer,
 	cli docker.DockerClient,
 ) error {
-	t, err := topology.LoadTopology(compose, ctx, cli)
+	t, err := topology.Load(compose, ctx, cli)
 
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func doPs(
 func runPsCmd(
 	cmd *cobra.Command,
 	args []string,
-	sessionStore *session.Store,
+	sessionStore session.Store,
 	dockerProvider docker.DockerProvider,
 ) error {
 	s, err := sessionStore.Get(args[0])

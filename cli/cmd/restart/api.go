@@ -8,7 +8,7 @@ import (
 )
 
 func NewRestartCmd(
-	sessionStore *session.Store,
+	sessionStore session.Store,
 	docker docker.DockerProvider,
 ) *cobra.Command {
 	return &cobra.Command{

@@ -18,16 +18,23 @@ type Session struct {
 
 const sessionFileExt = ".json"
 
-type Store struct {
+type Store interface {
+	Get(id string) (*Session, error)
+	Create(projectName string, composeFileAbsPath string) (*Session, error)
+	Delete(id string) error
+}
+
+type concreteStore struct {
 	dir string
 }
 
-func NewStore(dir string) *Store {
-	return &Store{dir: dir}
+func NewStore(dir string) Store {
+	return &concreteStore{dir: dir}
 }
 
-func DefaultStore() (*Store, error) {
+func NewDefaultStore() (Store, error) {
 	home, err := os.UserHomeDir()
+
 	if err != nil {
 		return nil, fmt.Errorf("get user home dir: %w", err)
 	}
@@ -35,26 +42,21 @@ func DefaultStore() (*Store, error) {
 	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
 }
 
-func (s *Store) sessionPath(id string) (string, error) {
-	if id == "" {
-		return "", errors.New("session id cannot be empty")
-	}
-
-	return filepath.Join(s.dir, id+sessionFileExt), nil
-}
-
-func (s *Store) Get(id string) (*Session, error) {
+func (s *concreteStore) Get(id string) (*Session, error) {
 	path, err := s.sessionPath(id)
+
 	if err != nil {
 		return nil, err
 	}
 
 	data, err := os.ReadFile(path)
+
 	if err != nil {
 		return nil, fmt.Errorf("read session %q: %w", id, err)
 	}
 
 	var session Session
+
 	if err := json.Unmarshal(data, &session); err != nil {
 		return nil, fmt.Errorf("decode session %q: %w", id, err)
 	}
@@ -62,13 +64,14 @@ func (s *Store) Get(id string) (*Session, error) {
 	return &session, nil
 }
 
-func (s *Store) Create(
+func (s *concreteStore) Create(
 	projectName string,
 	composeFileAbsPath string,
 ) (*Session, error) {
 	id := uuid.NewString()
 
 	path, err := s.sessionPath(id)
+
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +87,7 @@ func (s *Store) Create(
 	}
 
 	data, err := json.MarshalIndent(session, "", "  ")
+
 	if err != nil {
 		return nil, fmt.Errorf("encode session: %w", err)
 	}
@@ -95,8 +99,9 @@ func (s *Store) Create(
 	return session, nil
 }
 
-func (s *Store) Delete(id string) error {
+func (s *concreteStore) Delete(id string) error {
 	path, err := s.sessionPath(id)
+
 	if err != nil {
 		return err
 	}
@@ -110,4 +115,12 @@ func (s *Store) Delete(id string) error {
 	}
 
 	return nil
+}
+
+func (s *concreteStore) sessionPath(id string) (string, error) {
+	if id == "" {
+		return "", errors.New("session id cannot be empty")
+	}
+
+	return filepath.Join(s.dir, id+sessionFileExt), nil
 }

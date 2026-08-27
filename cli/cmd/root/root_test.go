@@ -1,3 +1,5 @@
+//go:build !integration
+
 package root
 
 import (
@@ -8,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRootCmdGeneratesNoErrors(t *testing.T) {
+func TestRootCmd_NoArguments_Succeeds(t *testing.T) {
 	_, err := clitest.ExecuteCommand(t, NewRootCmd())
 
 	assert.NoError(t, err)

@@ -1,3 +1,5 @@
+//go:build integration
+
 package ps
 
 import (
@@ -8,10 +10,9 @@ import (
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestPsWithRealCompose(t *testing.T) {
+func TestPsCmd_RunningComposeProject_PrintsRunningService(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
@@ -21,12 +22,12 @@ services:
 
 	output, err := runPs(t, app.ComposeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "running")
 }
 
-func TestPsWithMultipleProjects(t *testing.T) {
+func TestPsCmd_MultipleComposeProjects_PrintsOnlySessionProject(t *testing.T) {
 	app1 := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
@@ -43,14 +44,14 @@ services:
 
 	output, err := runPs(t, app1.ComposeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "running")
 
 	assert.NotContains(t, output, "project2")
 }
 
-func TestPsWithMultipleReplicas(t *testing.T) {
+func TestPsCmd_MultipleReplicas_PrintsAllReplicas(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
@@ -62,12 +63,12 @@ services:
 
 	output, err := runPs(t, app.ComposeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 3, "web", "running")
 }
 
-func TestPsWithStoppedContainer(t *testing.T) {
+func TestPsCmd_StoppedContainer_PrintsExitedStatus(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
@@ -79,12 +80,12 @@ services:
 
 	output, err := runPs(t, app.ComposeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "exited")
 }
 
-func TestPsWithMissingContainer(t *testing.T) {
+func TestPsCmd_MissingContainer_PrintsMissingStatus(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-ps-1`, `
 name: project-ps-1
 services:
@@ -96,7 +97,7 @@ services:
 
 	output, err := runPs(t, app.ComposeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "missing")
 }
@@ -104,11 +105,11 @@ services:
 func runPs(t *testing.T, composeFile string) (string, error) {
 	t.Helper()
 
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	s, err := store.Create("project", composeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	cmd := NewPsCmd(store, dockertest.RealDockerProvider())
 

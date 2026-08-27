@@ -1,9 +1,10 @@
 package lifecycle
 
 import (
+	"context"
+
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/topology"
-	"context"
 
 	"github.com/moby/moby/client"
 )

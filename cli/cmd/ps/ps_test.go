@@ -1,3 +1,5 @@
+//go:build !integration
+
 package ps
 
 import (
@@ -13,57 +15,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPsCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := executePs(t, sessiontest.StubSessionStore(t))
+func TestPsCmd_NoArguments_ReturnsError(t *testing.T) {
+	output, err := executePs(t, sessiontest.CreateStubStore(t))
 
 	assert.Error(t, err)
 	assert.Contains(t, output, "accepts 1 arg(s), received 0")
 }
 
-func TestPsCmdWithMultipleArgsThenFail(t *testing.T) {
+func TestPsCmd_MultipleArguments_ReturnsError(t *testing.T) {
 	output, err := executePs(
 		t,
-		sessiontest.StubSessionStore(t),
+		sessiontest.CreateStubStore(t),
 		"session1",
 		"session2",
 	)
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "accepts 1 arg(s), received 2")
 }
 
-func TestPsCmdWithNonExistentSessionThenFail(t *testing.T) {
+func TestPsCmd_NonexistentSession_ReturnsError(t *testing.T) {
 	output, err := executePs(
 		t,
-		sessiontest.StubSessionStore(t),
+		sessiontest.CreateStubStore(t),
 		"session1",
 	)
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, `read session "session1"`)
 }
 
-func TestLoadCmdWithInvalidYamlThenFail(t *testing.T) {
-	file := clitest.File(t, `services:
-  app:
-    image: nginx
-    ports: [
-`)
-
-	output, err := executePsSession(t, file)
-
-	assert.Error(t, err)
-	assert.Contains(t, output, "failed to parse file")
-}
-
-func TestPsCmdWithRunningContainerThenPrintTopology(t *testing.T) {
+func TestPsCmd_RunningContainer_PrintsTopology(t *testing.T) {
 	file := clitest.File(t, `name: project-ps-1
 services:
   web:
     image: nginx
 `)
 
-	store, sessionID := psSession(t, file)
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
 
 	cmd := NewPsCmd(
 		store,
@@ -82,7 +74,7 @@ services:
 		),
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, sessionID)
+	output, err := clitest.ExecuteCommand(t, cmd, session.ID)
 
 	assert.NoError(t, err)
 
@@ -91,7 +83,7 @@ services:
 	assert.Contains(t, output, "running")
 }
 
-func executePs(t *testing.T, store *session.Store, args ...string) (string, error) {
+func executePs(t *testing.T, store session.Store, args ...string) (string, error) {
 	t.Helper()
 
 	return clitest.ExecuteCommand(
@@ -99,24 +91,4 @@ func executePs(t *testing.T, store *session.Store, args ...string) (string, erro
 		NewPsCmd(store, dockertest.EmptyDockerProvider()),
 		args...,
 	)
-}
-
-func executePsSession(t *testing.T, composeFile string) (string, error) {
-	t.Helper()
-
-	store, sessionID := psSession(t, composeFile)
-
-	return executePs(t, store, sessionID)
-}
-
-func psSession(t *testing.T, composeFile string) (*session.Store, string) {
-	t.Helper()
-
-	store := sessiontest.StubSessionStore(t)
-
-	s, err := store.Create("project", composeFile)
-
-	assert.NoError(t, err)
-
-	return store, s.ID
 }

@@ -1,3 +1,5 @@
+//go:build integration
+
 package restart
 
 import (
@@ -11,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRestartCmdWithNonExistentServiceThenFail(t *testing.T) {
+func TestRestartCmd_RunningComposeProjectWithNonexistentService_ReturnsError(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
@@ -26,7 +28,7 @@ services:
 	assert.Contains(t, output, "service nonexistent-service not found in project project-restart-1")
 }
 
-func TestRestartCmdWithExistingServiceThenSucceed(t *testing.T) {
+func TestRestartCmd_ExistingService_PrintsRestartedContainer(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
@@ -36,12 +38,12 @@ services:
 
 	output, err := runRestart(t, app.ComposeFile, "web")
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
 }
 
-func TestRestartCmdWithMultipleReplicasThenSucceed(t *testing.T) {
+func TestRestartCmd_MultipleReplicas_PrintsAllRestartedContainers(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
@@ -53,14 +55,14 @@ services:
 
 	output, err := runRestart(t, app.ComposeFile, "web")
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
 	assert.Contains(t, output, "project-restart-1-web-2")
 	assert.Contains(t, output, "project-restart-1-web-3")
 }
 
-func TestRestartCmdEnsureServiceIsIndeedRestarted(t *testing.T) {
+func TestRestartCmd_ExistingService_RestartsContainer(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-restart-1`, `
 name: project-restart-1
 services:
@@ -68,30 +70,40 @@ services:
     image: nginx:alpine
 `)
 
-	containerBeforeRestart := dockertest.ContainerByServiceName(t, "project-restart-1", "web")
-	beforeInspect := dockertest.InspectContainer(t, containerBeforeRestart.GetContainerID())
+	containerBeforeRestart :=
+		dockertest.ContainerByServiceName(t, "project-restart-1", "web")
+
+	beforeInspect :=
+		dockertest.InspectContainer(t, containerBeforeRestart.GetContainerID())
 
 	output, err := runRestart(t, app.ComposeFile, "web")
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Contains(t, output, "project-restart-1-web-1")
 
-	containerAfterRestart := dockertest.ContainerByServiceName(t, "project-restart-1", "web")
-	afterInspect := dockertest.InspectContainer(t, containerAfterRestart.GetContainerID())
+	containerAfterRestart :=
+		dockertest.ContainerByServiceName(t, "project-restart-1", "web")
 
-	assert.Equal(t, containerBeforeRestart.GetContainerID(), containerAfterRestart.GetContainerID())
+	afterInspect :=
+		dockertest.InspectContainer(t, containerAfterRestart.GetContainerID())
 
-	assert.NotEqual(t, beforeInspect.Container.State.StartedAt, afterInspect.Container.State.StartedAt)
+	assert.Equal(
+		t, containerBeforeRestart.GetContainerID(), containerAfterRestart.GetContainerID(),
+	)
+
+	assert.NotEqual(
+		t, beforeInspect.Container.State.StartedAt, afterInspect.Container.State.StartedAt,
+	)
 }
 
 func runRestart(t *testing.T, composeFile string, serviceName string) (string, error) {
 	t.Helper()
 
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	s, err := store.Create("project", composeFile)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	cmd := NewRestartCmd(store, dockertest.RealDockerProvider())
 

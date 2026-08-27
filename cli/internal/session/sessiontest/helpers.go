@@ -6,10 +6,10 @@ import (
 	"chaosd/cli/internal/session"
 )
 
-func RealStore(t *testing.T) *session.Store {
+func CreateRealStore(t *testing.T) session.Store {
 	t.Helper()
 
-	store, err := session.DefaultStore()
+	store, err := session.NewDefaultStore()
 
 	if err != nil {
 		t.Fatalf("failed to create default session store: %v", err)
@@ -18,7 +18,7 @@ func RealStore(t *testing.T) *session.Store {
 	return store
 }
 
-func StubSessionStore(t *testing.T) *session.Store {
+func CreateStubStore(t *testing.T) session.Store {
 	t.Helper()
 
 	return session.NewStore(t.TempDir())

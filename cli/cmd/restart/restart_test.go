@@ -1,3 +1,5 @@
+//go:build !integration
+
 package restart
 
 import (
@@ -14,81 +16,96 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRestartCmdWithNoArgsThenFail(t *testing.T) {
-	output, err := executeRestart(t, sessiontest.StubSessionStore(t))
+func TestRestartCmd_NoArguments_ReturnsError(t *testing.T) {
+	output, err := executeRestart(t, sessiontest.CreateStubStore(t))
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "accepts 2 arg(s), received 0")
 }
 
-func TestRestartCmdWithOneArgThenFail(t *testing.T) {
+func TestRestartCmd_OneArgument_ReturnsError(t *testing.T) {
 	output, err := executeRestart(
 		t,
-		sessiontest.StubSessionStore(t),
+		sessiontest.CreateStubStore(t),
 		"session1",
 	)
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "accepts 2 arg(s), received 1")
 }
 
-func TestRestartCmdWithThreeArgsThenFail(t *testing.T) {
+func TestRestartCmd_ThreeArguments_ReturnsError(t *testing.T) {
 	output, err := executeRestart(
 		t,
-		sessiontest.StubSessionStore(t),
+		sessiontest.CreateStubStore(t),
 		"session1",
 		"service1",
 		"extra",
 	)
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "accepts 2 arg(s), received 3")
 }
 
-func TestRestartCmdWithNonExistentSessionThenFail(t *testing.T) {
+func TestRestartCmd_NonexistentSession_ReturnsError(t *testing.T) {
 	output, err := executeRestart(
 		t,
-		sessiontest.StubSessionStore(t),
+		sessiontest.CreateStubStore(t),
 		"session1",
 		"service1",
 	)
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, `read session "session1"`)
 }
 
-func TestRestartCmdWithInvalidYamlThenFail(t *testing.T) {
+func TestRestartCmd_InvalidYAML_ReturnsError(t *testing.T) {
 	file := clitest.File(t, `services:
   app:
     image: nginx
     ports: [
 `)
 
-	output, err := executeRestartSession(t, file, "app")
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
+
+	output, err := executeRestart(t, store, session.ID, "app")
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "failed to parse file")
 }
 
-func TestRestartCmdWithNonExistentServiceAndNoContainersRunningThenFail(t *testing.T) {
+func TestRestartCmd_NonexistentService_ReturnsError(t *testing.T) {
 	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
 
-	output, err := executeRestartSession(t, file, "app")
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
+
+	output, err := executeRestart(t, store, session.ID, "app")
 
 	assert.Error(t, err)
+
 	assert.Contains(t, output, "service app not found in project project-restart-1")
 }
 
-func TestRestartCmdWithRunningContainerThenFailToRestart(t *testing.T) {
+func TestRestartCmd_ContainerRestartFails_ReturnsError(t *testing.T) {
 	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
+
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
 
 	dockerProvider := &dockertest.DockerProviderMock{
 		Client: &dockertest.DockerClientMock{
@@ -110,18 +127,16 @@ services:
 		},
 	}
 
-	store, sessionID := restartSession(t, file)
-
 	cmd := NewRestartCmd(store, dockerProvider)
 
-	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
 
 	assert.Error(t, err)
 
 	assert.Contains(t, output, "chaosd-app-1 failed to restart")
 }
 
-func TestRestartCmdWithMultipleReplicasThenFailToRestartOne(t *testing.T) {
+func TestRestartCmd_OneReplicaRestartFails_ReportsEachResult(t *testing.T) {
 	file := clitest.File(t, `name: project-restart-1
 services:
   web:
@@ -129,6 +144,9 @@ services:
     deploy:
       replicas: 3
 `)
+
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
 
 	dockerProvider := &dockertest.DockerProviderMock{
 		Client: &dockertest.DockerClientMock{
@@ -168,11 +186,9 @@ services:
 		},
 	}
 
-	store, sessionID := restartSession(t, file)
-
 	cmd := NewRestartCmd(store, dockerProvider)
 
-	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
 
 	assert.Error(t, err)
 
@@ -181,14 +197,15 @@ services:
 	assert.Contains(t, output, "chaosd-app-3 restarted")
 }
 
-func TestRestartCmdWithRunningContainerThenPrintContainerName(t *testing.T) {
+func TestRestartCmd_RunningContainer_RestartsAndPrintsContainerName(t *testing.T) {
 	file := clitest.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
 `)
 
-	store, sessionID := restartSession(t, file)
+	store := sessiontest.CreateStubStore(t)
+	session, _ := store.Create("project", file)
 
 	cmd := NewRestartCmd(
 		store,
@@ -207,7 +224,7 @@ services:
 		),
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
 
 	assert.NoError(t, err)
 
@@ -216,7 +233,7 @@ services:
 
 func executeRestart(
 	t *testing.T,
-	store *session.Store,
+	store session.Store,
 	args ...string,
 ) (string, error) {
 	t.Helper()
@@ -226,28 +243,4 @@ func executeRestart(
 		NewRestartCmd(store, dockertest.EmptyDockerProvider()),
 		args...,
 	)
-}
-
-func executeRestartSession(
-	t *testing.T,
-	composeFile string,
-	serviceName string,
-) (string, error) {
-	t.Helper()
-
-	store, sessionID := restartSession(t, composeFile)
-
-	return executeRestart(t, store, sessionID, serviceName)
-}
-
-func restartSession(t *testing.T, composeFile string) (*session.Store, string) {
-	t.Helper()
-
-	store := sessiontest.StubSessionStore(t)
-
-	s, err := store.Create("project", composeFile)
-
-	assert.NoError(t, err)
-
-	return store, s.ID
 }

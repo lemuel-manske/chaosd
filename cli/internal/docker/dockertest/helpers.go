@@ -131,42 +131,6 @@ func writeComposeFile(t *testing.T, composeYAML string) string {
 	return file
 }
 
-func containerByServiceName(
-	t *testing.T,
-	projectName string,
-	serviceName string,
-) testcontainers.Container {
-	t.Helper()
-
-	ctx := context.Background()
-
-	provider, err := testcontainers.NewDockerProvider()
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, provider.Close())
-	})
-
-	filters := client.Filters{}
-	filters.Add("label", "com.docker.compose.project="+projectName)
-	filters.Add("label", "com.docker.compose.service="+serviceName)
-
-	result, err := provider.Client().ContainerList(
-		ctx,
-		client.ContainerListOptions{
-			All:     true,
-			Filters: filters,
-		},
-	)
-	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-
-	container, err := provider.ContainerFromType(ctx, result.Items[0])
-	require.NoError(t, err)
-
-	return container
-}
-
 func StartComposeApp(t *testing.T, projectName string, composeYAML string) ComposeApp {
 	t.Helper()
 
@@ -193,11 +157,44 @@ func StartComposeApp(t *testing.T, projectName string, composeYAML string) Compo
 	}
 }
 
+func ContainerByServiceName(t *testing.T, projectName string, serviceName string) testcontainers.Container {
+	t.Helper()
+
+	ctx := context.Background()
+
+	provider, err := testcontainers.NewDockerProvider()
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, provider.Close())
+	})
+
+	filters := client.Filters{}
+	filters.Add("label", "com.docker.compose.project="+projectName)
+	filters.Add("label", "com.docker.compose.service="+serviceName)
+
+	result, err := provider.Client().ContainerList(
+		ctx,
+		client.ContainerListOptions{
+			All:     true,
+			Filters: filters,
+		},
+	)
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+
+	container, err := provider.ContainerFromType(ctx, result.Items[0])
+	require.NoError(t, err)
+
+	return container
+}
+
 func StopContainerByServiceName(t *testing.T, projectName string, serviceName string) {
 	t.Helper()
 
 	ctx := context.Background()
-	c := containerByServiceName(t, projectName, serviceName)
+	c := ContainerByServiceName(t, projectName, serviceName)
 
 	require.NoError(t, c.Stop(ctx, nil))
 }
@@ -206,15 +203,9 @@ func RemoveContainerByServiceName(t *testing.T, projectName string, serviceName 
 	t.Helper()
 
 	ctx := context.Background()
-	c := containerByServiceName(t, projectName, serviceName)
+	c := ContainerByServiceName(t, projectName, serviceName)
 
 	require.NoError(t, c.Terminate(ctx))
-}
-
-func ContainerByServiceName(t *testing.T, projectName string, serviceName string) testcontainers.Container {
-	t.Helper()
-
-	return containerByServiceName(t, projectName, serviceName)
 }
 
 func InspectContainer(t *testing.T, containerID string) client.ContainerInspectResult {
@@ -231,7 +222,9 @@ func InspectContainer(t *testing.T, containerID string) client.ContainerInspectR
 
 	opts := client.ContainerInspectOptions{}
 
-	containerJSON, err := provider.Client().ContainerInspect(ctx, containerID, opts)
+	containerJSON, err :=
+		provider.Client().ContainerInspect(ctx, containerID, opts)
+
 	require.NoError(t, err)
 
 	return containerJSON

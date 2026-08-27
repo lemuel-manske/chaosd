@@ -1,3 +1,5 @@
+//go:build !integration
+
 package lifecycle
 
 import (
@@ -31,8 +33,9 @@ func TestRestartLifecycle(t *testing.T) {
 
 	stNode := res[0]
 
-	assert.Equal(t, "web", stNode.Node.Service)
 	assert.Nil(t, stNode.Err)
+
+	assert.Equal(t, "web", stNode.Node.Service)
 }
 
 func TestRestartLifecycleWithError(t *testing.T) {
@@ -59,6 +62,7 @@ func TestRestartLifecycleWithError(t *testing.T) {
 
 	stNode := res[0]
 
-	assert.Equal(t, "web", stNode.Node.Service)
 	assert.NotNil(t, stNode.Err)
+
+	assert.Equal(t, "web", stNode.Node.Service)
 }

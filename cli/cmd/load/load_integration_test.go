@@ -1,3 +1,5 @@
+//go:build integration
+
 package load
 
 import (
@@ -13,14 +15,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadCmdWithValidYamlAndRealDockerThenSucceed(t *testing.T) {
+func TestLoadCmd_RunningComposeProject_CreatesSession(t *testing.T) {
 	app := dockertest.StartComposeApp(t, `project-load-1`, `name: project-load-1
 services:
   web:
     image: nginx
 `)
 
-	sessionStore := sessiontest.StubSessionStore(t)
+	sessionStore := sessiontest.CreateStubStore(t)
 
 	output, err := runLoad(t, sessionStore, app.ComposeFile)
 
@@ -36,7 +38,7 @@ services:
 	assert.Equal(t, app.ComposeFile, s.ComposeFile)
 }
 
-func runLoad(t *testing.T, sessionStore *session.Store, composeFile string) (string, error) {
+func runLoad(t *testing.T, sessionStore session.Store, composeFile string) (string, error) {
 	t.Helper()
 
 	cmd := NewLoadCmd(

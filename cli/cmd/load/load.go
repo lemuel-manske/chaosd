@@ -18,14 +18,14 @@ const missingState = "missing"
 const reportFormat = "%s -> %s%s\n"
 
 func doLoad(
-	sessionStore *session.Store,
+	sessionStore session.Store,
 	composeFileAbsPath string,
 	compose *docker.ComposeFile,
 	ctx context.Context,
 	stdout io.Writer,
 	cli docker.DockerClient,
 ) error {
-	_, err := topology.LoadTopology(compose, ctx, cli)
+	_, err := topology.Load(compose, ctx, cli)
 
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func doLoad(
 func runLoadCmd(
 	cmd *cobra.Command,
 	args []string,
-	sessionStore *session.Store,
+	sessionStore session.Store,
 	dockerProvider docker.DockerProvider,
 ) error {
 	filePath := args[0]

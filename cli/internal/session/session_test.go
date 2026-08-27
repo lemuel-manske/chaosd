@@ -1,3 +1,5 @@
+//go:build !integration
+
 package session_test
 
 import (
@@ -12,7 +14,7 @@ import (
 func TestSessionIsPersisted(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	s, err := store.Create(`project1`, f)
 
@@ -24,7 +26,7 @@ func TestSessionIsPersisted(t *testing.T) {
 func TestGetSession(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	s, err := store.Create(`project1`, f)
 
@@ -40,7 +42,7 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestGetSessionNotFound(t *testing.T) {
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	_, err := store.Get(`nonexistent`)
 
@@ -50,7 +52,7 @@ func TestGetSessionNotFound(t *testing.T) {
 func TestDeleteSession(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.StubSessionStore(t)
+	store := sessiontest.CreateStubStore(t)
 
 	s, err := store.Create(`project1`, f)
 
