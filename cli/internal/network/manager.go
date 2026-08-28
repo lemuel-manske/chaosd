@@ -28,7 +28,14 @@ func (m *concreteManager) Partition(
 ) error {
 	links := LinksBetween(a, b)
 
-	results := m.injector.Partition(ctx, links)
+	request := PartitionRequest{
+		Links: links,
+		Metadata: RuleMetadata{
+			FaultID: createFaultID(a, b),
+		},
+	}
+
+	results := m.injector.Partition(ctx, request)
 
 	for _, r := range results {
 		if r.Result != nil {
@@ -46,7 +53,14 @@ func (m *concreteManager) Heal(
 ) error {
 	links := LinksBetween(a, b)
 
-	results := m.injector.Heal(ctx, links)
+	request := HealRequest{
+		Links: links,
+		Metadata: RuleMetadata{
+			FaultID: createFaultID(a, b),
+		},
+	}
+
+	results := m.injector.Heal(ctx, request)
 
 	for _, r := range results {
 		if r.Result != nil {
@@ -55,4 +69,8 @@ func (m *concreteManager) Heal(
 	}
 
 	return nil
+}
+
+func createFaultID(a topology.Node, b topology.Node) string {
+	return a.ContainerName + "-" + b.ContainerName
 }

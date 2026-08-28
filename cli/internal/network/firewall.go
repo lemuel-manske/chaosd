@@ -7,14 +7,28 @@ import (
 	"os/exec"
 )
 
+type RuleMetadata struct {
+	FaultID string
+}
+
+type PartitionRequest struct {
+	Links    []Link
+	Metadata RuleMetadata
+}
+
+type HealRequest struct {
+	Links    []Link
+	Metadata RuleMetadata
+}
+
 type ActionResult struct {
 	Link   Link
 	Result error
 }
 
 type Injector interface {
-	Partition(ctx context.Context, links []Link) []ActionResult
-	Heal(ctx context.Context, links []Link) []ActionResult
+	Partition(ctx context.Context, request PartitionRequest) []ActionResult
+	Heal(ctx context.Context, request HealRequest) []ActionResult
 }
 
 type LinuxFirewallInjector struct{}
@@ -47,23 +61,40 @@ func LinksBetween(a, b topology.Node) []Link {
 	return links
 }
 
+const (
+	chaosdChainName = "CHAOSD"
+	commentFormat   = "chaosd:%s"
+)
+
 func (i *LinuxFirewallInjector) Partition(
 	ctx context.Context,
-	links []Link,
+	request PartitionRequest,
 ) []ActionResult {
 	results := make([]ActionResult, 0)
 
-	for _, l := range links {
+	for _, l := range request.Links {
 
 		targetIP := l.TargetIP
 		sourceIP := l.SourceIP
 
+		err := ensureChaosdChain()
+
+		if err != nil {
+			results = append(results, ActionResult{
+				Link:   l,
+				Result: fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+			})
+
+			continue
+		}
+
 		cmd := exec.CommandContext(
 			ctx,
 			"iptables",
-			"-I", "DOCKER-USER",
+			"-I", chaosdChainName,
 			"-s", sourceIP,
 			"-d", targetIP,
+			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.FaultID),
 			"-j", "DROP",
 		)
 
@@ -87,21 +118,32 @@ func (i *LinuxFirewallInjector) Partition(
 
 func (i *LinuxFirewallInjector) Heal(
 	ctx context.Context,
-	links []Link,
+	request HealRequest,
 ) []ActionResult {
 	results := make([]ActionResult, 0)
 
-	for _, l := range links {
-
+	for _, l := range request.Links {
 		targetIP := l.TargetIP
 		sourceIP := l.SourceIP
+
+		err := ensureChaosdChain()
+
+		if err != nil {
+			results = append(results, ActionResult{
+				Link:   l,
+				Result: fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+			})
+
+			continue
+		}
 
 		cmd := exec.CommandContext(
 			ctx,
 			"iptables",
-			"-D", "DOCKER-USER",
+			"-D", chaosdChainName,
 			"-s", sourceIP,
 			"-d", targetIP,
+			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.FaultID),
 			"-j", "DROP",
 		)
 
@@ -121,4 +163,28 @@ func (i *LinuxFirewallInjector) Heal(
 	}
 
 	return results
+}
+
+// checks if the CHAOSD chain exists in iptables, and creates it if it doesn't.
+func ensureChaosdChain() error {
+	cmd := exec.Command("iptables", "-L", "CHAOSD")
+	err := cmd.Run()
+
+	if err != nil {
+		cmd := exec.Command("iptables", "-N", "CHAOSD")
+		err = cmd.Run()
+
+		if err != nil {
+			return fmt.Errorf("failed to create CHAOSD chain: %v", err)
+		}
+
+		cmd = exec.Command("iptables", "-I", "DOCKER-USER", "-j", "CHAOSD")
+		err = cmd.Run()
+
+		if err != nil {
+			return fmt.Errorf("failed to insert CHAOSD chain into DOCKER-USER: %v", err)
+		}
+	}
+
+	return nil
 }

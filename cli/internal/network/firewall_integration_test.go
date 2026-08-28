@@ -50,8 +50,13 @@ services:
 	)
 
 	linuxFirewallInjector := NewLinuxFirewallInjector()
-	links := LinksBetween(nodaA, nodeB)
-	results := linuxFirewallInjector.Partition(ctx, links)
+	partitionRequest := PartitionRequest{
+		Links: LinksBetween(nodaA, nodeB),
+		Metadata: RuleMetadata{
+			FaultID: "test-fault-id",
+		},
+	}
+	results := linuxFirewallInjector.Partition(ctx, partitionRequest)
 
 	for _, result := range results {
 		assert.NoError(t, result.Result)
@@ -65,5 +70,11 @@ services:
 	)
 
 	// teardown
-	linuxFirewallInjector.Heal(ctx, links)
+	healRequest := HealRequest{
+		Links: LinksBetween(nodaA, nodeB),
+		Metadata: RuleMetadata{
+			FaultID: "test-fault-id",
+		},
+	}
+	linuxFirewallInjector.Heal(ctx, healRequest)
 }
