@@ -74,7 +74,7 @@ services:
 		),
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID)
+	output, err := clitest.ExecuteCommand(t, cmd, string(session.ID))
 
 	assert.NoError(t, err)
 

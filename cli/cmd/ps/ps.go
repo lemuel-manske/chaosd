@@ -1,65 +1,45 @@
 package ps
 
 import (
-	"context"
-	"fmt"
-	"io"
-
+	"chaosd/cli/application"
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/session"
-	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
 )
 
-func doPs(
-	compose *docker.ComposeFile,
-	ctx context.Context,
-	stdout io.Writer,
-	cli docker.DockerClient,
-) error {
-	t, err := topology.Load(compose, ctx, cli)
-
-	if err != nil {
-		return err
+func NewPsCmd(
+	sessionStore session.Store,
+	docker docker.DockerProvider,
+) *cobra.Command {
+	app := application.Application{
+		SessionStore:   sessionStore,
+		DockerProvider: docker,
 	}
 
-	t.Print(stdout)
-
-	return nil
+	return &cobra.Command{
+		Use: "ps",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, args, app)
+		},
+		Args: cobra.ExactArgs(1),
+	}
 }
 
-func runPsCmd(
+func run(
 	cmd *cobra.Command,
 	args []string,
-	sessionStore session.Store,
-	dockerProvider docker.DockerProvider,
+	app application.Application,
 ) error {
-	s, err := sessionStore.Get(args[0])
+	sessionID := args[0]
+
+	t, err := app.GetTopology(cmd.Context(), sessionID)
 
 	if err != nil {
 		return err
 	}
 
-	composeFile, err := docker.Parse(s.ComposeFile)
+	t.Print(cmd.OutOrStdout())
 
-	if err != nil {
-		return err
-	}
-
-	cli, err := dockerProvider.NewClient()
-
-	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
-	}
-
-	stdout := cmd.OutOrStdout()
-	ctx := cmd.Context()
-
-	return doPs(
-		composeFile,
-		ctx,
-		stdout,
-		cli,
-	)
+	return nil
 }

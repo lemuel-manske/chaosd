@@ -40,7 +40,7 @@ services:
 	output, err := runPartition(
 		t,
 		store,
-		session.ID,
+		string(session.ID),
 		"project-partition-1-node-a-1",
 		"project-partition-1-node-b-1",
 	)

@@ -6,6 +6,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func runChaosd(cmd *cobra.Command, args []string) {
-	fmt.Println("Chaosd command executed")
+func NewRootCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "chaosd",
+		Short: "Chaosd is a laboratory for distributed systems",
+		Run:   run,
+	}
+}
+
+func run(cmd *cobra.Command, args []string) {
+	fmt.Println(cmd.OutOrStdout(), "Chaosd command executed")
 }

@@ -8,6 +8,7 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/google/uuid"
@@ -138,7 +139,7 @@ services:
 
 	assert.NoError(t, err)
 
-	s, err := sessionStore.Get(sessionID)
+	s, err := sessionStore.Get(session.SessionID(sessionID))
 
 	assert.NoError(t, err)
 

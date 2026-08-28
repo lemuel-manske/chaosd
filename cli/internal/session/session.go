@@ -10,18 +10,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type SessionID string
+
 type Session struct {
-	ID          string `json:"id"`
-	Project     string `json:"project"`
-	ComposeFile string `json:"compose_file"`
+	ID          SessionID `json:"id"`
+	Project     string    `json:"project"`
+	ComposeFile string    `json:"compose_file"`
 }
 
 const sessionFileExt = ".json"
 
 type Store interface {
-	Get(id string) (*Session, error)
+	Get(id SessionID) (*Session, error)
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
-	Delete(id string) error
+	Delete(id SessionID) error
 }
 
 type concreteStore struct {
@@ -42,7 +44,7 @@ func NewDefaultStore() (Store, error) {
 	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
 }
 
-func (s *concreteStore) Get(id string) (*Session, error) {
+func (s *concreteStore) Get(id SessionID) (*Session, error) {
 	path, err := s.sessionPath(id)
 
 	if err != nil {
@@ -70,7 +72,7 @@ func (s *concreteStore) Create(
 ) (*Session, error) {
 	id := uuid.NewString()
 
-	path, err := s.sessionPath(id)
+	path, err := s.sessionPath(SessionID(id))
 
 	if err != nil {
 		return nil, err
@@ -81,7 +83,7 @@ func (s *concreteStore) Create(
 	}
 
 	session := &Session{
-		ID:          id,
+		ID:          SessionID(id),
 		Project:     projectName,
 		ComposeFile: composeFileAbsPath,
 	}
@@ -99,7 +101,7 @@ func (s *concreteStore) Create(
 	return session, nil
 }
 
-func (s *concreteStore) Delete(id string) error {
+func (s *concreteStore) Delete(id SessionID) error {
 	path, err := s.sessionPath(id)
 
 	if err != nil {
@@ -117,10 +119,10 @@ func (s *concreteStore) Delete(id string) error {
 	return nil
 }
 
-func (s *concreteStore) sessionPath(id string) (string, error) {
+func (s *concreteStore) sessionPath(id SessionID) (string, error) {
 	if id == "" {
 		return "", errors.New("session id cannot be empty")
 	}
 
-	return filepath.Join(s.dir, id+sessionFileExt), nil
+	return filepath.Join(s.dir, string(id)+sessionFileExt), nil
 }

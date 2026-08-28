@@ -30,7 +30,7 @@ services:
 
 	sessionID := strings.TrimSpace(output)
 
-	s, err := sessionStore.Get(sessionID)
+	s, err := sessionStore.Get(session.SessionID(sessionID))
 
 	assert.NoError(t, err)
 

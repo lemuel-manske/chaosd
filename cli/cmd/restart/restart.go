@@ -1,44 +1,46 @@
 package restart
 
 import (
-	"context"
 	"fmt"
-	"io"
 
+	"chaosd/cli/application"
 	"chaosd/cli/internal/docker"
-	"chaosd/cli/internal/lifecycle"
 	"chaosd/cli/internal/session"
-	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
 )
 
-func doRestart(
-	composeFile *docker.ComposeFile,
-	serviceName string,
-	ctx context.Context,
-	stdout io.Writer,
-	cli docker.DockerClient,
+func NewRestartCmd(
+	sessionStore session.Store,
+	docker docker.DockerProvider,
+) *cobra.Command {
+	app := application.Application{
+		SessionStore:   sessionStore,
+		DockerProvider: docker,
+	}
+
+	return &cobra.Command{
+		Use: "restart",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, args, app)
+		},
+		Args: cobra.ExactArgs(2),
+	}
+}
+
+func run(
+	cmd *cobra.Command,
+	args []string,
+	app application.Application,
 ) error {
-	t, err := topology.Load(composeFile, ctx, cli)
+	sessionID := args[0]
+	serviceName := args[1]
+
+	results, err := app.RestartService(cmd.Context(), sessionID, serviceName)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to restart service: %v", err)
 	}
-
-	nodes := t.NodesByServiceName(serviceName)
-
-	if len(nodes) == 0 {
-		return fmt.Errorf(
-			"service %s not found in project %s",
-			serviceName,
-			t.Project,
-		)
-	}
-
-	manager := lifecycle.NewLifecycle(cli)
-
-	results := manager.Restart(ctx, nodes)
 
 	var restartFailed bool
 
@@ -47,7 +49,7 @@ func doRestart(
 			restartFailed = true
 
 			fmt.Fprintf(
-				stdout,
+				cmd.OutOrStdout(),
 				"%s failed to restart\n",
 				r.Node.ContainerName,
 			)
@@ -56,7 +58,7 @@ func doRestart(
 		}
 
 		fmt.Fprintf(
-			stdout,
+			cmd.OutOrStdout(),
 			"%s restarted\n",
 			r.Node.ContainerName,
 		)
@@ -67,42 +69,4 @@ func doRestart(
 	}
 
 	return nil
-}
-
-func runRestartCmd(
-	cmd *cobra.Command,
-	args []string,
-	sessionStore session.Store,
-	dockerProvider docker.DockerProvider,
-) error {
-	s, err := sessionStore.Get(args[0])
-
-	if err != nil {
-		return err
-	}
-
-	composeFile, err := docker.Parse(s.ComposeFile)
-
-	if err != nil {
-		return err
-	}
-
-	cli, err := dockerProvider.NewClient()
-
-	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
-	}
-
-	stdout := cmd.OutOrStdout()
-	ctx := cmd.Context()
-
-	serviceName := args[1]
-
-	return doRestart(
-		composeFile,
-		serviceName,
-		ctx,
-		stdout,
-		cli,
-	)
 }

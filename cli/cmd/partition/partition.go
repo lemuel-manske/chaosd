@@ -1,108 +1,58 @@
 package partition
 
 import (
-	"context"
 	"fmt"
-	"io"
 
+	"chaosd/cli/application"
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/session"
-	"chaosd/cli/internal/topology"
 
 	"github.com/spf13/cobra"
 )
 
-func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {
-	node := t.NodeByName(name)
-	if node == nil {
-		return nil, fmt.Errorf("%s missing", name)
-	}
-
-	if node.State != "running" {
-		return nil, fmt.Errorf("%s is not running", name)
-	}
-
-	return node, nil
-}
-
-func doPartition(
-	composeFile *docker.ComposeFile,
-	nodeAName string,
-	nodeBName string,
-	ctx context.Context,
-	stdout io.Writer,
-	cli docker.DockerClient,
-	networkManager network.Manager,
-) error {
-	t, err := topology.Load(composeFile, ctx, cli)
-
-	if err != nil {
-		return err
-	}
-
-	nodeA, err := getRunningNode(t, nodeAName)
-
-	if err != nil {
-		return err
-	}
-
-	nodeB, err := getRunningNode(t, nodeBName)
-
-	if err != nil {
-		return err
-	}
-
-	err = networkManager.Partition(ctx, *nodeA, *nodeB)
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(stdout, "%s and %s partitioned\n", nodeAName, nodeBName)
-
-	return nil
-}
-
-func runPartitionCmd(
-	cmd *cobra.Command,
-	args []string,
+func NewPartitionCmd(
 	sessionStore session.Store,
 	dockerProvider docker.DockerProvider,
 	networkManager network.Manager,
+) *cobra.Command {
+	app := application.Application{
+		SessionStore:   sessionStore,
+		DockerProvider: dockerProvider,
+		NetworkManager: networkManager,
+	}
+
+	return &cobra.Command{
+		Use: "partition",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, args, app)
+		},
+		Args: cobra.ExactArgs(3),
+	}
+}
+
+func run(
+	cmd *cobra.Command,
+	args []string,
+	app application.Application,
 ) error {
 	sessionID := args[0]
-	serviceA := args[1]
-	serviceB := args[2]
 
-	s, err := sessionStore.Get(sessionID)
+	nodeAName := args[1]
+	nodeBName := args[2]
 
-	if err != nil {
-		return err
-	}
-
-	composeFile, err := docker.Parse(s.ComposeFile)
+	err := app.Partition(cmd.Context(), sessionID, nodeAName, nodeBName)
 
 	if err != nil {
 		return err
 	}
 
-	cli, err := dockerProvider.NewClient()
-
-	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
-	}
-
-	stdout := cmd.OutOrStdout()
-	ctx := cmd.Context()
-
-	return doPartition(
-		composeFile,
-		serviceA,
-		serviceB,
-		ctx,
-		stdout,
-		cli,
-		networkManager,
+	fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"%s and %s partitioned\n",
+		nodeAName,
+		nodeBName,
 	)
+
+	return nil
 }

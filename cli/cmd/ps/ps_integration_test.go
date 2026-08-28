@@ -113,5 +113,5 @@ func runPs(t *testing.T, composeFile string) (string, error) {
 
 	cmd := NewPsCmd(store, dockertest.RealDockerProvider())
 
-	return clitest.ExecuteCommand(t, cmd, s.ID)
+	return clitest.ExecuteCommand(t, cmd, string(s.ID))
 }

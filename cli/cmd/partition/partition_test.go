@@ -92,7 +92,9 @@ services:
 		manager,
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "wrong-node-name", "another-wrong-node-name")
+	sessionID := string(session.ID)
+
+	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "wrong-node-name", "another-wrong-node-name")
 
 	assert.Error(t, err)
 
@@ -140,7 +142,9 @@ services:
 		manager,
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "chaosd-web-1", "chaosd-db-1")
+	sessionID := string(session.ID)
+
+	output, err := clitest.ExecuteCommand(t, cmd, sessionID, "chaosd-web-1", "chaosd-db-1")
 
 	assert.Error(t, err)
 

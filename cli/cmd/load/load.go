@@ -1,83 +1,46 @@
 package load
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"path/filepath"
-
+	"chaosd/cli/application"
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/session"
-	"chaosd/cli/internal/topology"
+	"fmt"
 
 	"github.com/spf13/cobra"
 )
 
-const missingState = "missing"
-
-const reportFormat = "%s -> %s%s\n"
-
-func doLoad(
-	sessionStore session.Store,
-	composeFileAbsPath string,
-	compose *docker.ComposeFile,
-	ctx context.Context,
-	stdout io.Writer,
-	cli docker.DockerClient,
-) error {
-	_, err := topology.Load(compose, ctx, cli)
-
-	if err != nil {
-		return err
-	}
-
-	projectName := compose.Name
-
-	s, err := sessionStore.Create(
-		projectName,
-		composeFileAbsPath,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintln(stdout, s.ID)
-
-	return nil
-}
-
-func runLoadCmd(
-	cmd *cobra.Command,
-	args []string,
+func NewLoadCmd(
 	sessionStore session.Store,
 	dockerProvider docker.DockerProvider,
+) *cobra.Command {
+	app := application.Application{
+		SessionStore:   sessionStore,
+		DockerProvider: dockerProvider,
+	}
+
+	return &cobra.Command{
+		Use: "load",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, args, app)
+		},
+		Args: cobra.ExactArgs(1),
+	}
+}
+
+func run(
+	cmd *cobra.Command,
+	args []string,
+	app application.Application,
 ) error {
-	filePath := args[0]
+	composeFilePath := args[0]
 
-	composeFile, err := docker.Parse(filePath)
-
-	if err != nil {
-		return err
-	}
-
-	cli, err := dockerProvider.NewClient()
+	sessionID, err := app.Load(cmd.Context(), composeFilePath)
 
 	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
+		return fmt.Errorf("failed to load compose file: %v", err)
 	}
 
-	stdout := cmd.OutOrStdout()
-	ctx := cmd.Context()
+	fmt.Fprintln(cmd.OutOrStdout(), sessionID)
 
-	composeFileAbsPath, err := filepath.Abs(filePath)
-
-	return doLoad(
-		sessionStore,
-		composeFileAbsPath,
-		composeFile,
-		ctx,
-		stdout,
-		cli,
-	)
+	return nil
 }

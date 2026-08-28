@@ -73,7 +73,7 @@ func TestRestartCmd_InvalidYAML_ReturnsError(t *testing.T) {
 	store := sessiontest.CreateStubStore(t)
 	session, _ := store.Create("project", file)
 
-	output, err := executeRestart(t, store, session.ID, "app")
+	output, err := executeRestart(t, store, string(session.ID), "app")
 
 	assert.Error(t, err)
 
@@ -90,7 +90,7 @@ services:
 	store := sessiontest.CreateStubStore(t)
 	session, _ := store.Create("project", file)
 
-	output, err := executeRestart(t, store, session.ID, "app")
+	output, err := executeRestart(t, store, string(session.ID), "app")
 
 	assert.Error(t, err)
 
@@ -129,7 +129,7 @@ services:
 
 	cmd := NewRestartCmd(store, dockerProvider)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, string(session.ID), "web")
 
 	assert.Error(t, err)
 
@@ -188,7 +188,7 @@ services:
 
 	cmd := NewRestartCmd(store, dockerProvider)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, string(session.ID), "web")
 
 	assert.Error(t, err)
 
@@ -224,7 +224,7 @@ services:
 		),
 	)
 
-	output, err := clitest.ExecuteCommand(t, cmd, session.ID, "web")
+	output, err := clitest.ExecuteCommand(t, cmd, string(session.ID), "web")
 
 	assert.NoError(t, err)
 

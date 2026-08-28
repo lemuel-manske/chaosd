@@ -107,5 +107,5 @@ func runRestart(t *testing.T, composeFile string, serviceName string) (string, e
 
 	cmd := NewRestartCmd(store, dockertest.RealDockerProvider())
 
-	return clitest.ExecuteCommand(t, cmd, s.ID, serviceName)
+	return clitest.ExecuteCommand(t, cmd, string(s.ID), serviceName)
 }
