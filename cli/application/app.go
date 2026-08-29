@@ -167,7 +167,7 @@ func (app *Application) Partition(
 	cli, err := app.DockerProvider.NewClient()
 
 	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
+		return newDockerClientError(err)
 	}
 
 	t, err := topology.Load(composeFile, ctx, cli)
@@ -220,7 +220,7 @@ func (app *Application) Heal(
 	cli, err := app.DockerProvider.NewClient()
 
 	if err != nil {
-		return fmt.Errorf("failed to create docker client: %v", err)
+		return newDockerClientError(err)
 	}
 
 	t, err := topology.Load(composeFile, ctx, cli)
