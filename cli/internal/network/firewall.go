@@ -43,6 +43,13 @@ func NewLinuxFirewallInjector() *LinuxFirewallInjector {
 	return &LinuxFirewallInjector{}
 }
 
+const (
+	chaosdChainName = "CHAOSD"
+	dockerChainName = "DOCKER-USER"
+
+	commentFormat = "chaosd:%s"
+)
+
 func LinksBetween(a, b topology.Node) []Link {
 	var links []Link
 
@@ -60,11 +67,6 @@ func LinksBetween(a, b topology.Node) []Link {
 
 	return links
 }
-
-const (
-	chaosdChainName = "CHAOSD"
-	commentFormat   = "chaosd:%s"
-)
 
 func (i *LinuxFirewallInjector) Partition(
 	ctx context.Context,
@@ -165,24 +167,23 @@ func (i *LinuxFirewallInjector) Heal(
 	return results
 }
 
-// checks if the CHAOSD chain exists in iptables, and creates it if it doesn't.
 func ensureChaosdChain() error {
-	cmd := exec.Command("iptables", "-L", "CHAOSD")
+	cmd := exec.Command("iptables", "-L", chaosdChainName)
 	err := cmd.Run()
 
 	if err != nil {
-		cmd := exec.Command("iptables", "-N", "CHAOSD")
+		cmd := exec.Command("iptables", "-N", chaosdChainName)
 		err = cmd.Run()
 
 		if err != nil {
 			return fmt.Errorf("failed to create CHAOSD chain: %v", err)
 		}
 
-		cmd = exec.Command("iptables", "-I", "DOCKER-USER", "-j", "CHAOSD")
+		cmd = exec.Command("iptables", "-I", dockerChainName, "-j", chaosdChainName)
 		err = cmd.Run()
 
 		if err != nil {
-			return fmt.Errorf("failed to insert CHAOSD chain into DOCKER-USER: %v", err)
+			return fmt.Errorf("failed to insert %s chain into %s: %v", chaosdChainName, dockerChainName, err)
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 )
 
 type Lifecycle struct {
-	docker docker.DockerClient
+	dockerClient docker.DockerClient
 }
 
 type ActionResult struct {
@@ -18,9 +18,9 @@ type ActionResult struct {
 	Err  error
 }
 
-func NewLifecycle(docker docker.DockerClient) *Lifecycle {
+func NewLifecycle(dockerClient docker.DockerClient) *Lifecycle {
 	return &Lifecycle{
-		docker: docker,
+		dockerClient: dockerClient,
 	}
 }
 
@@ -31,7 +31,7 @@ func (l *Lifecycle) Restart(ctx context.Context, nodes []topology.Node) []Action
 	for _, node := range nodes {
 		opts := client.ContainerRestartOptions{}
 
-		_, err := l.docker.RestartContainer(
+		_, err := l.dockerClient.RestartContainer(
 			ctx,
 			node.ContainerID,
 			opts,
