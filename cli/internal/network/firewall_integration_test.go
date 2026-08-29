@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLinuxFirewallInjector_Partition(t *testing.T) {
+func TestLinuxFirewallInjector_PartitionAndHeal(t *testing.T) {
 	app := dockertest.StartComposeApp(t, "project-firewall-1", `name: project-firewall-1
 
 services:
@@ -50,6 +50,7 @@ services:
 	)
 
 	linuxFirewallInjector := NewLinuxFirewallInjector()
+
 	partitionRequest := PartitionRequest{
 		Links: LinksBetween(nodaA, nodeB),
 		Metadata: RuleMetadata{
@@ -69,12 +70,22 @@ services:
 		"http://node-b",
 	)
 
-	// teardown
 	healRequest := HealRequest{
 		Links: LinksBetween(nodaA, nodeB),
 		Metadata: RuleMetadata{
 			FaultID: "test-fault-id",
 		},
 	}
-	linuxFirewallInjector.Heal(ctx, healRequest)
+	results = linuxFirewallInjector.Heal(ctx, healRequest)
+
+	for _, result := range results {
+		assert.NoError(t, result.Result)
+	}
+
+	dockertest.AssertCanReach(
+		t,
+		"project-firewall-1",
+		"node-a",
+		"http://node-b",
+	)
 }

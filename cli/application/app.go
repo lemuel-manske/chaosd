@@ -197,6 +197,59 @@ func (app *Application) Partition(
 	return nil
 }
 
+func (app *Application) Heal(
+	ctx context.Context,
+	sessionID string,
+	nodeAName string,
+	nodeBName string,
+) error {
+	id := session.SessionID(sessionID)
+
+	session, err := app.SessionStore.Get(id)
+
+	if err != nil {
+		return err
+	}
+
+	composeFile, err := docker.Parse(session.ComposeFile)
+
+	if err != nil {
+		return err
+	}
+
+	cli, err := app.DockerProvider.NewClient()
+
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %v", err)
+	}
+
+	t, err := topology.Load(composeFile, ctx, cli)
+
+	if err != nil {
+		return err
+	}
+
+	nodeA, err := getRunningNode(t, nodeAName)
+
+	if err != nil {
+		return err
+	}
+
+	nodeB, err := getRunningNode(t, nodeBName)
+
+	if err != nil {
+		return err
+	}
+
+	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {
 	node := t.NodeByName(name)
 	if node == nil {
