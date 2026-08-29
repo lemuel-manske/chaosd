@@ -190,7 +190,10 @@ func TestPartition_RunningNodes_PartitionsNodes(t *testing.T) {
 func TestHeal_RunningNodes_HealsNodes(t *testing.T) {
 	app, sessionID := createNetworkApplication(t)
 
-	err := app.Heal(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
+	err := app.Partition(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+
+	err = app.Heal(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
 
 	assert.NoError(t, err)
 }

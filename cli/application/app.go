@@ -152,13 +152,13 @@ func (app *Application) Partition(
 ) error {
 	id := session.SessionID(sessionID)
 
-	session, err := app.SessionStore.Get(id)
+	_session, err := app.SessionStore.Get(id)
 
 	if err != nil {
 		return err
 	}
 
-	composeFile, err := docker.Parse(session.ComposeFile)
+	composeFile, err := docker.Parse(_session.ComposeFile)
 
 	if err != nil {
 		return err
@@ -194,6 +194,12 @@ func (app *Application) Partition(
 		return err
 	}
 
+	err = app.SessionStore.AddPartitionFault(id, nodeAName, nodeBName)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -205,13 +211,13 @@ func (app *Application) Heal(
 ) error {
 	id := session.SessionID(sessionID)
 
-	session, err := app.SessionStore.Get(id)
+	_session, err := app.SessionStore.Get(id)
 
 	if err != nil {
 		return err
 	}
 
-	composeFile, err := docker.Parse(session.ComposeFile)
+	composeFile, err := docker.Parse(_session.ComposeFile)
 
 	if err != nil {
 		return err
@@ -241,13 +247,23 @@ func (app *Application) Heal(
 		return err
 	}
 
+	fault := _session.FindFault(nodeAName, nodeBName)
+
+	if fault == nil {
+		return fmt.Errorf("no partition fault found between %s and %s", nodeAName, nodeBName)
+	}
+
+	if fault.IsHealed() {
+		return fmt.Errorf("partition fault between %s and %s is already healed", nodeAName, nodeBName)
+	}
+
 	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB)
 
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return app.SessionStore.HealPartitionFault(id, nodeAName, nodeBName)
 }
 
 func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {
