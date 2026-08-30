@@ -15,7 +15,7 @@ func AssertLineCountContains(
 
 	count := 0
 
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		matches := true
 
 		for _, s := range contains {

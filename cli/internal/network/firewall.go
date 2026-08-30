@@ -79,7 +79,7 @@ func (i *LinuxFirewallInjector) Partition(
 		targetIP := l.TargetIP
 		sourceIP := l.SourceIP
 
-		err := ensureChaosdChain()
+		err := i.ensureCHAOSDChain()
 
 		if err != nil {
 			results = append(results, ActionResult{
@@ -128,7 +128,7 @@ func (i *LinuxFirewallInjector) Heal(
 		targetIP := l.TargetIP
 		sourceIP := l.SourceIP
 
-		err := ensureChaosdChain()
+		err := i.ensureCHAOSDChain()
 
 		if err != nil {
 			results = append(results, ActionResult{
@@ -167,7 +167,7 @@ func (i *LinuxFirewallInjector) Heal(
 	return results
 }
 
-func ensureChaosdChain() error {
+func (i* LinuxFirewallInjector) ensureCHAOSDChain() error {
 	cmd := exec.Command("iptables", "-L", chaosdChainName)
 	err := cmd.Run()
 

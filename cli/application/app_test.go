@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
 
 	"chaosd/cli/clitest"
@@ -11,17 +12,23 @@ import (
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
-	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetTopology_NonexistentSession_ReturnsError(t *testing.T) {
-	app := Application{
-		SessionStore:   sessiontest.CreateStubStore(t),
-		DockerProvider: dockertest.EmptyDockerProvider(),
-	}
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewEmptyDockerProvider()
+	networkManager := networktest.NewStubManager()
 
-	topology, err := app.GetTopology(context.Background(), "session1")
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session_id := session.SessionID("session1")
+
+	topology, err := app.GetTopology(context.Background(), session_id)
 
 	assert.Nil(t, topology)
 
@@ -37,28 +44,29 @@ services:
     image: nginx
 `)
 
-	store := sessiontest.CreateStubStore(t)
-
-	session, _ := store.Create("project-1", file)
-
-	app := Application{
-		SessionStore: store,
-		DockerProvider: dockertest.FakeDockerProvider(
-			[]container.Summary{
-				{
-					ID:    "1234567890",
-					Names: []string{"chaosd-web-1"},
-					Labels: map[string]string{
-						"com.docker.compose.service": "web",
-						"com.docker.compose.project": "project-1",
-					},
-					State: "running",
-				},
-			},
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1234567890",
+				"chaosd-web-1",
+				"project-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
 		),
-	}
+	)
+	networkManager := networktest.NewStubManager()
 
-	topology, err := app.GetTopology(context.Background(), string(session.ID))
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-1", file)
+
+	topology, err := app.GetTopology(context.Background(), session.ID)
 
 	assert.NoError(t, err)
 
@@ -74,10 +82,15 @@ func TestLoad_InvalidYAML_ReturnsError(t *testing.T) {
     ports: [
 `)
 
-	app := Application{
-		SessionStore:   sessiontest.CreateStubStore(t),
-		DockerProvider: dockertest.EmptyDockerProvider(),
-	}
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewEmptyDockerProvider()
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
 
 	sessionID, err := app.Load(context.Background(), file)
 
@@ -95,11 +108,15 @@ services:
     image: nginx
 `)
 
-	store := sessiontest.CreateStubStore(t)
-	app := Application{
-		SessionStore:   store,
-		DockerProvider: dockertest.EmptyDockerProvider(),
-	}
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewEmptyDockerProvider()
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
 
 	sessionID, err := app.Load(context.Background(), file)
 
@@ -107,7 +124,7 @@ services:
 
 	assert.NotEmpty(t, sessionID)
 
-	createdSession, err := store.Get(sessionID)
+	createdSession, err := sessionStore.Get(sessionID)
 
 	assert.NoError(t, err)
 
@@ -122,16 +139,19 @@ services:
     image: nginx
 `)
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewEmptyDockerProvider()
+	networkManager := networktest.NewStubManager()
 
-	session, _ := store.Create("project-restart-1", file)
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
 
-	app := Application{
-		SessionStore:   store,
-		DockerProvider: dockertest.EmptyDockerProvider(),
-	}
+	session, _ := sessionStore.Create("project-restart-1", file)
 
-	results, err := app.RestartService(context.Background(), string(session.ID), "api")
+	results, err := app.RestartService(context.Background(), session.ID, "api")
 
 	assert.Error(t, err)
 
@@ -147,28 +167,29 @@ services:
     image: nginx
 `)
 
-	store := sessiontest.CreateStubStore(t)
-
-	session, _ := store.Create("project-restart-1", file)
-
-	app := Application{
-		SessionStore: store,
-		DockerProvider: dockertest.FakeDockerProvider(
-			[]container.Summary{
-				{
-					ID:    "1",
-					Names: []string{"chaosd-web-1"},
-					Labels: map[string]string{
-						"com.docker.compose.service": "web",
-						"com.docker.compose.project": "project-restart-1",
-					},
-					State: "running",
-				},
-			},
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-restart-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
 		),
-	}
+	)
+	networkManager := networktest.NewStubManager()
 
-	results, err := app.RestartService(context.Background(), string(session.ID), "web")
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-restart-1", file)
+
+	results, err := app.RestartService(context.Background(), session.ID, "web")
 
 	assert.NoError(t, err)
 
@@ -180,20 +201,90 @@ services:
 }
 
 func TestPartition_RunningNodes_PartitionsNodes(t *testing.T) {
-	app, sessionID := createNetworkApplication(t)
+	file := clitest.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
 
-	err := app.Partition(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:198.162.10.2",
+			),
+		),
+	)
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 
 	assert.NoError(t, err)
 }
 
 func TestHeal_RunningNodes_HealsNodes(t *testing.T) {
-	app, sessionID := createNetworkApplication(t)
+	file := clitest.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
 
-	err := app.Partition(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:198.162.10.2",
+			),
+		),
+	)
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	err = app.Heal(context.Background(), sessionID, "chaosd-web-1", "chaosd-db-1")
+	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 
 	assert.NoError(t, err)
 }
@@ -229,9 +320,7 @@ func TestGetRunningNode_StoppedNode_ReturnsError(t *testing.T) {
 	assert.EqualError(t, err, "chaosd-web-1 is not running")
 }
 
-func createNetworkApplication(t *testing.T) (*Application, string) {
-	t.Helper()
-
+func TestPartition_RunningNodes_KeepsEvent(t *testing.T) {
 	file := clitest.File(t, `name: project-network-1
 services:
   web:
@@ -240,36 +329,163 @@ services:
     image: postgres
 `)
 
-	store := sessiontest.CreateStubStore(t)
-
-	session, _ := store.Create("project-network-1", file)
-
-	app := &Application{
-		SessionStore: store,
-		DockerProvider: dockertest.FakeDockerProvider(
-			[]container.Summary{
-				{
-					ID:    "1",
-					Names: []string{"chaosd-web-1"},
-					Labels: map[string]string{
-						"com.docker.compose.service": "web",
-						"com.docker.compose.project": "project-network-1",
-					},
-					State: "running",
-				},
-				{
-					ID:    "2",
-					Names: []string{"chaosd-db-1"},
-					Labels: map[string]string{
-						"com.docker.compose.service": "db",
-						"com.docker.compose.project": "project-network-1",
-					},
-					State: "running",
-				},
-			},
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:198.162.10.2",
+			),
 		),
-		NetworkManager: networktest.NewStubManager(),
+	)
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+
+	events, err := app.events.List(session.ID)
+	assert.NoError(t, err)
+
+	assert.Len(t, events, 1)
+
+	expectedData := PartitionAppliedEventData{
+		NodeAName: "chaosd-web-1",
+		NodeBName: "chaosd-db-1",
 	}
 
-	return app, string(session.ID)
+	assert.Equal(t, PartitionAppliedEvent, events[0].Type)
+	assert.Equal(t, expectedData, events[0].Data)
+}
+
+func TestHeal_RunningNodes_KeepsEvent(t *testing.T) {
+	file := clitest.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:198.162.10.2",
+			),
+		),
+	)
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+
+	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+
+	events, err := app.events.List(session.ID)
+	assert.NoError(t, err)
+
+	assert.Len(t, events, 2)
+
+	expectedData := HealAppliedEventData{
+		NodeAName: "chaosd-web-1",
+		NodeBName: "chaosd-db-1",
+	}
+
+	assert.Equal(t, HealAppliedEvent, events[1].Type)
+	assert.Equal(t, expectedData, events[1].Data)
+}
+
+func TestRestartService_RunningContainers_KeepsEvent(t *testing.T) {
+	file := clitest.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:198.162.10.2",
+			),
+		),
+	)
+	networkManager := networktest.NewStubManager()
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	results, err := app.RestartService(context.Background(), session.ID, "web")
+
+	assert.NoError(t, err)
+
+	assert.Len(t, results, 1)
+
+	events, err := app.events.List(session.ID)
+	assert.NoError(t, err)
+
+	assert.Len(t, events, 1)
+
+	expectedData := RestartEventData{
+		ServiceName: "web",
+	}
+
+	assert.Equal(t, RestartEvent, events[0].Type)
+	assert.Equal(t, expectedData, events[0].Data)
 }

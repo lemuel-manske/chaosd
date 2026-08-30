@@ -12,9 +12,9 @@ import (
 func TestSessionIsPersisted(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	s, err := store.Create(`project1`, f)
+	s, err := sessionStore.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
@@ -24,13 +24,13 @@ func TestSessionIsPersisted(t *testing.T) {
 func TestGetSession(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	s, err := store.Create(`project1`, f)
+	s, err := sessionStore.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
-	s2, err := store.Get(s.ID)
+	s2, err := sessionStore.Get(s.ID)
 
 	assert.NoError(t, err)
 
@@ -40,9 +40,9 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestGetSessionNotFound(t *testing.T) {
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	_, err := store.Get(`nonexistent`)
+	_, err := sessionStore.Get(`nonexistent`)
 
 	assert.Error(t, err)
 }
@@ -50,17 +50,17 @@ func TestGetSessionNotFound(t *testing.T) {
 func TestDeleteSession(t *testing.T) {
 	f := clitest.File(t, `name: project`)
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	s, err := store.Create(`project1`, f)
-
-	assert.NoError(t, err)
-
-	err = store.Delete(s.ID)
+	s, err := sessionStore.Create(`project1`, f)
 
 	assert.NoError(t, err)
 
-	_, err = store.Get(s.ID)
+	err = sessionStore.Delete(s.ID)
+
+	assert.NoError(t, err)
+
+	_, err = sessionStore.Get(s.ID)
 
 	assert.Error(t, err)
 }

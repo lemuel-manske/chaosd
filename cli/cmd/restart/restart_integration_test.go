@@ -5,8 +5,11 @@ package restart
 import (
 	"testing"
 
+	"chaosd/cli/application"
+
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +25,6 @@ services:
 `)
 
 	output, err := runRestart(t, app.ComposeFile, "nonexistent-service")
-
 	require.Error(t, err)
 
 	assert.Contains(t, output, "service nonexistent-service not found in project project-restart-1")
@@ -37,7 +39,6 @@ services:
 `)
 
 	output, err := runRestart(t, app.ComposeFile, "web")
-
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
@@ -54,7 +55,6 @@ services:
 `)
 
 	output, err := runRestart(t, app.ComposeFile, "web")
-
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
@@ -77,8 +77,8 @@ services:
 		dockertest.InspectContainer(t, containerBeforeRestart.GetContainerID())
 
 	output, err := runRestart(t, app.ComposeFile, "web")
-
 	assert.NoError(t, err)
+
 	assert.Contains(t, output, "project-restart-1-web-1")
 
 	containerAfterRestart :=
@@ -99,13 +99,22 @@ services:
 func runRestart(t *testing.T, composeFile string, serviceName string) (string, error) {
 	t.Helper()
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	s, err := store.Create("project", composeFile)
+	createdSession, err := sessionStore.Create("project", composeFile)
 
 	assert.NoError(t, err)
 
-	cmd := NewRestartCmd(store, dockertest.RealDockerProvider())
+	dockerProvider := dockertest.NewRealDockerProvider()
+	networkManager := networktest.NewRealManager()
 
-	return clitest.ExecuteCommand(t, cmd, string(s.ID), serviceName)
+	app := application.NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	cmd := NewRestartCmd(*app)
+
+	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID), serviceName)
 }

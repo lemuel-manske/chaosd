@@ -5,8 +5,11 @@ package ps
 import (
 	"testing"
 
+	"chaosd/cli/application"
+
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +24,6 @@ services:
 `)
 
 	output, err := runPs(t, app.ComposeFile)
-
 	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "running")
@@ -43,7 +45,6 @@ services:
 `)
 
 	output, err := runPs(t, app1.ComposeFile)
-
 	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "running")
@@ -62,7 +63,6 @@ services:
 `)
 
 	output, err := runPs(t, app.ComposeFile)
-
 	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 3, "web", "running")
@@ -79,7 +79,6 @@ services:
 	dockertest.StopContainerByServiceName(t, app.ProjectName, "web")
 
 	output, err := runPs(t, app.ComposeFile)
-
 	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "exited")
@@ -96,7 +95,6 @@ services:
 	dockertest.RemoveContainerByServiceName(t, app.ProjectName, "web")
 
 	output, err := runPs(t, app.ComposeFile)
-
 	assert.NoError(t, err)
 
 	clitest.AssertLineCountContains(t, output, 1, "web", "missing")
@@ -105,13 +103,22 @@ services:
 func runPs(t *testing.T, composeFile string) (string, error) {
 	t.Helper()
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	s, err := store.Create("project", composeFile)
+	createdSession, err := sessionStore.Create("project", composeFile)
 
 	assert.NoError(t, err)
 
-	cmd := NewPsCmd(store, dockertest.RealDockerProvider())
+	dockerProvider := dockertest.NewRealDockerProvider()
+	networkManager := networktest.NewRealManager()
 
-	return clitest.ExecuteCommand(t, cmd, string(s.ID))
+	app := application.NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	cmd := NewPsCmd(*app)
+
+	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID))
 }

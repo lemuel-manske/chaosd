@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/lifecycle"
@@ -12,21 +13,97 @@ import (
 	"chaosd/cli/internal/topology"
 )
 
+type EventType string
+
+const (
+	PartitionAppliedEvent EventType = "partition"
+	HealAppliedEvent      EventType = "heal"
+
+	RestartEvent EventType = "restart"
+)
+
+type PartitionAppliedEventData struct {
+	NodeAName string
+	NodeBName string
+}
+
+type HealAppliedEventData struct {
+	NodeAName string
+	NodeBName string
+}
+
+type RestartEventData struct {
+	ServiceName string
+}
+
+type Event struct {
+	Type      EventType
+	CreatedAt time.Time
+	Data      any
+}
+
+type EventStore interface {
+	Append(sessionID session.SessionID, event Event) error
+	List(sessionID session.SessionID) ([]Event, error)
+}
+
+type InMemoryEventStore struct {
+	events map[session.SessionID][]Event
+}
+
+func NewInMemoryEventStore() *InMemoryEventStore {
+	return &InMemoryEventStore{
+		events: make(map[session.SessionID][]Event),
+	}
+}
+
+func (s *InMemoryEventStore) Append(sessionID session.SessionID, event Event) error {
+	s.events[sessionID] = append(s.events[sessionID], event)
+	return nil
+}
+
+func (s *InMemoryEventStore) List(sessionID session.SessionID) ([]Event, error) {
+	return s.events[sessionID], nil
+}
+
 // Application represents the application layer of the CLI, to keep it (the CLI) thin
 type Application struct {
 	SessionStore   session.Store
 	DockerProvider docker.DockerProvider
 	NetworkManager network.Manager
 	Lifecycle      lifecycle.Lifecycle
+
+	events EventStore
+}
+
+func NewApplication(
+	sessionStore session.Store,
+	dockerProvider docker.DockerProvider,
+	networkManager network.Manager,
+) *Application {
+	dockerClient, err := dockerProvider.NewClient()
+
+	if err != nil {
+		panic(err)
+	}
+
+	lifecycle := lifecycle.NewLifecycle(dockerClient)
+
+	return &Application{
+		SessionStore:   sessionStore,
+		DockerProvider: dockerProvider,
+		NetworkManager: networkManager,
+		Lifecycle:      lifecycle,
+
+		events: NewInMemoryEventStore(),
+	}
 }
 
 func (app *Application) GetTopology(
 	ctx context.Context,
-	sessionID string,
+	sessionID session.SessionID,
 ) (*topology.Topology, error) {
-	id := session.SessionID(sessionID)
-
-	foundSession, err := app.SessionStore.Get(id)
+	foundSession, err := app.SessionStore.Get(sessionID)
 
 	if err != nil {
 		return nil, err
@@ -53,7 +130,10 @@ func (app *Application) GetTopology(
 	return t, nil
 }
 
-func (app *Application) Load(ctx context.Context, composeFilePath string) (session.SessionID, error) {
+func (app *Application) Load(
+	ctx context.Context,
+	composeFilePath string,
+) (session.SessionID, error) {
 	composeFileAbsPath, err := filepath.Abs(composeFilePath)
 
 	if err != nil {
@@ -94,14 +174,12 @@ func (app *Application) Load(ctx context.Context, composeFilePath string) (sessi
 
 func (app *Application) RestartService(
 	ctx context.Context,
-	sessionID string,
+	sessionID session.SessionID,
 	serviceName string,
 ) ([]lifecycle.ActionResult, error) {
-	id := session.SessionID(sessionID)
-
 	results := []lifecycle.ActionResult{}
 
-	session, err := app.SessionStore.Get(id)
+	session, err := app.SessionStore.Get(sessionID)
 
 	if err != nil {
 		return results, err
@@ -141,18 +219,37 @@ func (app *Application) RestartService(
 
 	results = manager.Restart(ctx, nodes)
 
+	app.events.Append(sessionID, Event{
+		Type:      RestartEvent,
+		CreatedAt: time.Now(),
+		Data: RestartEventData{
+			ServiceName: serviceName,
+		},
+	})
+
 	return results, nil
+}
+
+func (app *Application) ListEvents(
+	ctx context.Context,
+	sessionID session.SessionID,
+) ([]Event, error) {
+	events, err := app.events.List(sessionID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }
 
 func (app *Application) Partition(
 	ctx context.Context,
-	sessionID string,
+	sessionID session.SessionID,
 	nodeAName string,
 	nodeBName string,
 ) error {
-	id := session.SessionID(sessionID)
-
-	_session, err := app.SessionStore.Get(id)
+	_session, err := app.SessionStore.Get(sessionID)
 
 	if err != nil {
 		return err
@@ -194,24 +291,31 @@ func (app *Application) Partition(
 		return err
 	}
 
-	err = app.SessionStore.AddPartitionFault(id, nodeAName, nodeBName)
+	err = app.SessionStore.AddPartitionFault(sessionID, nodeAName, nodeBName)
 
 	if err != nil {
 		return err
 	}
+
+	app.events.Append(sessionID, Event{
+		Type:      PartitionAppliedEvent,
+		CreatedAt: time.Now(),
+		Data: PartitionAppliedEventData{
+			NodeAName: nodeAName,
+			NodeBName: nodeBName,
+		},
+	})
 
 	return nil
 }
 
 func (app *Application) Heal(
 	ctx context.Context,
-	sessionID string,
+	sessionID session.SessionID,
 	nodeAName string,
 	nodeBName string,
 ) error {
-	id := session.SessionID(sessionID)
-
-	_session, err := app.SessionStore.Get(id)
+	_session, err := app.SessionStore.Get(sessionID)
 
 	if err != nil {
 		return err
@@ -263,7 +367,22 @@ func (app *Application) Heal(
 		return err
 	}
 
-	return app.SessionStore.HealPartitionFault(id, nodeAName, nodeBName)
+	err = app.SessionStore.HealPartitionFault(sessionID, nodeAName, nodeBName)
+
+	if err != nil {
+		return err
+	}
+
+	app.events.Append(sessionID, Event{
+		Type:      HealAppliedEvent,
+		CreatedAt: time.Now(),
+		Data: HealAppliedEventData{
+			NodeAName: nodeAName,
+			NodeBName: nodeBName,
+		},
+	})
+
+	return nil
 }
 
 func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {

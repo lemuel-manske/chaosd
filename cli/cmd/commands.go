@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"chaosd/cli/application"
+	"chaosd/cli/cmd/events"
 	"chaosd/cli/cmd/load"
+	"chaosd/cli/cmd/partition"
 	"chaosd/cli/cmd/ps"
 	"chaosd/cli/cmd/restart"
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
@@ -24,9 +28,22 @@ func Init(rootCmd *cobra.Command) {
 		panic(msg)
 	}
 
-	rootCmd.AddCommand(load.NewLoadCmd(sessionStore, dockerProvider))
-	rootCmd.AddCommand(ps.NewPsCmd(sessionStore, dockerProvider))
-	rootCmd.AddCommand(restart.NewRestartCmd(sessionStore, dockerProvider))
+	networkManager := network.NewManager(
+		network.NewLinuxFirewallInjector(),
+	)
+
+	app := application.NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	rootCmd.AddCommand(events.NewEventsCmd(*app))
+	rootCmd.AddCommand(load.NewLoadCmd(*app))
+	rootCmd.AddCommand(partition.NewHealCmd(*app))
+	rootCmd.AddCommand(partition.NewPartitionCmd(*app))
+	rootCmd.AddCommand(ps.NewPsCmd(*app))
+	rootCmd.AddCommand(restart.NewRestartCmd(*app))
 }
 
 func Execute(rootCmd *cobra.Command) {

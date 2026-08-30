@@ -2,6 +2,7 @@ package dockertest
 
 import (
 	"context"
+	"net/netip"
 	"os"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"chaosd/cli/clitest"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -88,11 +90,56 @@ func (f *DockerClientMock) RestartContainer(
 	return client.ContainerRestartResult{}, nil
 }
 
-func RealDockerProvider() docker.DockerProvider {
+func NewContainers(
+	containers ...container.Summary,
+) []container.Summary {
+	return containers
+}
+
+func NewRunningContainer(
+	id string,
+	name string,
+	project string,
+	service string,
+	networks string, // comma-separated list of networks, where networks is networkName:ipAddress
+) container.Summary {
+	endpointSettings := make(map[string]*network.EndpointSettings)
+
+	if networks != "" {
+		networkList := strings.SplitSeq(networks, ",")
+
+		for aNetwork := range networkList {
+			networkName, ipAddress, hasIP := strings.Cut(aNetwork, ":")
+
+			endpointSettings[networkName] = &network.EndpointSettings{
+				IPAddress: netip.MustParseAddr(ipAddress),
+			}
+
+			if !hasIP {
+				panic("network string must be in the format 'networkName:ipAddress' or 'networkName'")
+			}
+		}
+	}
+
+	return container.Summary{
+		ID:    id,
+		Names: []string{name},
+		State: "running",
+		Labels: map[string]string{
+			"com.docker.compose.project": project,
+			"com.docker.compose.service": service,
+		},
+		NetworkSettings: &container.NetworkSettingsSummary{
+			Networks: endpointSettings,
+		},
+	}
+}
+
+func NewRealDockerProvider() docker.DockerProvider {
 	return docker.NewDockerProvider()
 }
 
-func EmptyDockerProvider() docker.DockerProvider {
+func NewEmptyDockerProvider() docker.DockerProvider {
 	return &DockerProviderMock{
 		Client: &DockerClientMock{
 			Containers: []container.Summary{},
@@ -100,7 +147,7 @@ func EmptyDockerProvider() docker.DockerProvider {
 	}
 }
 
-func FakeDockerProvider(
+func NewFakeDockerProvider(
 	containers []container.Summary,
 ) docker.DockerProvider {
 	return &DockerProviderMock{
@@ -110,7 +157,7 @@ func FakeDockerProvider(
 	}
 }
 
-func UnreachableDockerProvider() docker.DockerProvider {
+func NewUnreachableDockerProvider() docker.DockerProvider {
 	return &DockerProviderMock{
 		Client: &DockerClientMock{
 			PingErr: os.ErrNotExist,

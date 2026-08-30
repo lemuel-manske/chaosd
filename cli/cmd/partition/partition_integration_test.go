@@ -5,6 +5,7 @@ package partition
 import (
 	"testing"
 
+	"chaosd/cli/application"
 	"chaosd/cli/internal/session"
 
 	"chaosd/cli/clitest"
@@ -27,9 +28,9 @@ services:
     image: nginx:alpine
 `)
 
-	store := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
-	session, _ := store.Create("project-partition-1", app.ComposeFile)
+	session, _ := sessionStore.Create("project-partition-1", app.ComposeFile)
 
 	dockertest.AssertCanReach(
 		t,
@@ -40,12 +41,11 @@ services:
 
 	output, err := runPartition(
 		t,
-		store,
-		string(session.ID),
+		sessionStore,
+		session.ID,
 		"project-partition-1-node-a-1",
 		"project-partition-1-node-b-1",
 	)
-
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "partitioned")
@@ -59,12 +59,11 @@ services:
 
 	output, err = runHeal(
 		t,
-		store,
-		string(session.ID),
+		sessionStore,
+		session.ID,
 		"project-partition-1-node-a-1",
 		"project-partition-1-node-b-1",
 	)
-
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "healed")
@@ -80,31 +79,57 @@ services:
 func runPartition(
 	t *testing.T,
 	sessionStore session.Store,
-	sessionID string,
+	sessionID session.SessionID,
 	nodeA string,
 	nodeB string,
 ) (string, error) {
 	t.Helper()
 
+	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
-	cmd := NewPartitionCmd(sessionStore, dockertest.RealDockerProvider(), networkManager)
+	app := application.NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
 
-	return clitest.ExecuteCommand(t, cmd, sessionID, nodeA, nodeB)
+	cmd := NewPartitionCmd(*app)
+
+	return clitest.ExecuteCommand(
+		t,
+		cmd,
+		string(sessionID),
+		nodeA,
+		nodeB,
+	)
 }
 
 func runHeal(
 	t *testing.T,
 	sessionStore session.Store,
-	sessionID string,
+	sessionID session.SessionID,
 	nodeA string,
 	nodeB string,
 ) (string, error) {
 	t.Helper()
 
+	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
-	cmd := NewHealCmd(sessionStore, dockertest.RealDockerProvider(), networkManager)
+	app := application.NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
 
-	return clitest.ExecuteCommand(t, cmd, sessionID, nodeA, nodeB)
+	cmd := NewHealCmd(*app)
+
+	return clitest.ExecuteCommand(
+		t,
+		cmd,
+		string(sessionID),
+		nodeA,
+		nodeB,
+	)
 }

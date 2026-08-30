@@ -2,32 +2,26 @@ package topology
 
 import (
 	"context"
-	"net/netip"
 	"testing"
 
 	"chaosd/cli/internal/docker"
 
 	"chaosd/cli/internal/docker/dockertest"
 
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/network"
-
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadReturnsRunningContainer(t *testing.T) {
-	dockerProvider := dockertest.FakeDockerProvider(
-		[]container.Summary{
-			{
-				ID:    "1234567890",
-				Names: []string{"chaosd-app-1"},
-				Labels: map[string]string{
-					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project1",
-				},
-				State: "running",
-			},
-		},
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1234567890",
+				"chaosd-app-1",
+				"project1",
+				"web",
+				"chaosd_default:192.168.10.1",
+			),
+		),
 	)
 
 	dockerClient, _ := dockerProvider.NewClient()
@@ -58,6 +52,12 @@ func TestLoadReturnsRunningContainer(t *testing.T) {
 				ContainerID:   "1234567890",
 				ContainerName: "chaosd-app-1",
 				State:         "running",
+				Networks: []NetworkEndpoint{
+					{
+						NetworkName: "chaosd_default",
+						IPAddress:   "192.168.10.1",
+					},
+				},
 			},
 		},
 	}
@@ -68,18 +68,17 @@ func TestLoadReturnsRunningContainer(t *testing.T) {
 }
 
 func TestLoadNormalizesDockerContainerName(t *testing.T) {
-	dockerProvider := dockertest.FakeDockerProvider(
-		[]container.Summary{
-			{
-				ID:    "1234567890",
-				Names: []string{"/project-web-1"},
-				Labels: map[string]string{
-					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project1",
-				},
-				State: "running",
-			},
-		})
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1234567890",
+				"project-web-1",
+				"project1",
+				"web",
+				"chaosd_default:192.168.10.1",
+			),
+		),
+	)
 
 	dockerClient, _ := dockerProvider.NewClient()
 
@@ -100,8 +99,8 @@ func TestLoadNormalizesDockerContainerName(t *testing.T) {
 }
 
 func TestLoadMarksMissingService(t *testing.T) {
-	dockerProvider := dockertest.FakeDockerProvider(
-		[]container.Summary{},
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(),
 	)
 
 	dockerClient, _ := dockerProvider.NewClient()
@@ -223,44 +222,23 @@ func TestNodesByNetwork(t *testing.T) {
 }
 
 func TestGroupByNetworks(t *testing.T) {
-	dockerProvider := dockertest.FakeDockerProvider(
-		[]container.Summary{
-			{
-				ID:    "1",
-				Names: []string{"project-web-1"},
-				Labels: map[string]string{
-					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project1",
-				},
-				State: "running",
-				NetworkSettings: &container.NetworkSettingsSummary{
-					Networks: map[string]*network.EndpointSettings{
-						"chaosd_default": {
-							IPAddress: netip.MustParseAddr("198.162.10.1"),
-						},
-						"chaosd_other": {
-							IPAddress: netip.MustParseAddr("198.162.10.2"),
-						},
-					},
-				},
-			},
-			{
-				ID:    "2",
-				Names: []string{"project-web-2"},
-				Labels: map[string]string{
-					"com.docker.compose.service": "web",
-					"com.docker.compose.project": "project1",
-				},
-				State: "running",
-				NetworkSettings: &container.NetworkSettingsSummary{
-					Networks: map[string]*network.EndpointSettings{
-						"chaosd_default": {
-							IPAddress: netip.MustParseAddr("198.162.20.1"),
-						},
-					},
-				},
-			},
-		},
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"project-web-1",
+				"project1",
+				"web",
+				"chaosd_default:198.162.10.1,chaosd_other:198.162.10.2",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"project-web-2",
+				"project1",
+				"web",
+				"chaosd_default:198.162.20.1",
+			),
+		),
 	)
 
 	nodes := []Node{

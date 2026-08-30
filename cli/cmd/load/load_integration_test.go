@@ -6,8 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"chaosd/cli/application"
+
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"chaosd/cli/internal/session"
@@ -22,16 +25,14 @@ services:
     image: nginx
 `)
 
-	sessionStore := sessiontest.CreateStubStore(t)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	output, err := runLoad(t, sessionStore, app.ComposeFile)
-
 	assert.NoError(t, err)
 
 	sessionID := strings.TrimSpace(output)
 
 	s, err := sessionStore.Get(session.SessionID(sessionID))
-
 	assert.NoError(t, err)
 
 	assert.Equal(t, `project-load-1`, s.Project)
@@ -41,10 +42,16 @@ services:
 func runLoad(t *testing.T, sessionStore session.Store, composeFile string) (string, error) {
 	t.Helper()
 
-	cmd := NewLoadCmd(
+	dockerProvider := dockertest.NewRealDockerProvider()
+	networkManager := networktest.NewRealManager()
+
+	app := application.NewApplication(
 		sessionStore,
-		dockertest.RealDockerProvider(),
+		dockerProvider,
+		networkManager,
 	)
+
+	cmd := NewLoadCmd(*app)
 
 	return clitest.ExecuteCommand(t, cmd, composeFile)
 }

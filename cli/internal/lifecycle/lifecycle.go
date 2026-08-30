@@ -18,8 +18,8 @@ type ActionResult struct {
 	Err  error
 }
 
-func NewLifecycle(dockerClient docker.DockerClient) *Lifecycle {
-	return &Lifecycle{
+func NewLifecycle(dockerClient docker.DockerClient) Lifecycle {
+	return Lifecycle{
 		dockerClient: dockerClient,
 	}
 }

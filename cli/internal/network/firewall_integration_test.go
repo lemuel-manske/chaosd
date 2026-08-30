@@ -30,7 +30,7 @@ services:
 	composeFile, err := docker.Parse(app.ComposeFile)
 	assert.NoError(t, err)
 
-	dockerProvider := dockertest.RealDockerProvider()
+	dockerProvider := dockertest.NewRealDockerProvider()
 	dockerClient, err := dockerProvider.NewClient()
 	assert.NoError(t, err)
 
