@@ -261,5 +261,15 @@ func (s *ConcreteSessionStore) createPathToSession(id SessionID) (string, error)
 		return "", errors.New("session id cannot be empty")
 	}
 
+	if !s.isValidSessionID(string(id)) {
+		return "", fmt.Errorf("invalid session id: %q", id)
+	}
+
 	return filepath.Join(s.dir, string(id)+sessionFileExt), nil
+}
+
+func (s *ConcreteSessionStore) isValidSessionID(id string) bool {
+	_, err := uuid.Parse(id)
+
+	return err == nil
 }
