@@ -80,24 +80,6 @@ const (
 	commentFormat = "chaosd:%s"
 )
 
-func LinksBetween(a, b topology.Node) []Link {
-	var links []Link
-
-	for _, netA := range a.Networks {
-		for _, netB := range b.Networks {
-			if netA.NetworkName == netB.NetworkName {
-				links = append(links, Link{
-					NetworkName: netA.NetworkName,
-					SourceIP:    netA.IPAddress,
-					TargetIP:    netB.IPAddress,
-				})
-			}
-		}
-	}
-
-	return links
-}
-
 func (i *LinuxFirewallInjector) Partition(
 	ctx context.Context,
 	request PartitionRequest,
@@ -248,4 +230,22 @@ func (i *LinuxFirewallInjector) ensureJump() error {
 	}
 
 	return nil
+}
+
+func LinksBetween(a, b topology.Node) []Link {
+	var links []Link
+
+	for _, netA := range a.Networks {
+		for _, netB := range b.Networks {
+			if netA.NetworkName == netB.NetworkName {
+				links = append(links, Link{
+					NetworkName: netA.NetworkName,
+					SourceIP:    netA.IPAddress,
+					TargetIP:    netB.IPAddress,
+				})
+			}
+		}
+	}
+
+	return links
 }

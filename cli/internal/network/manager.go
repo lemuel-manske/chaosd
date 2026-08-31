@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"fmt"
 
 	"chaosd/cli/internal/topology"
 )
@@ -31,6 +32,10 @@ func (m *concreteManager) Partition(
 ) error {
 	request := NewPartitionRequest(a, b, faultID)
 
+	if len(request.Links) == 0 {
+		return fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
+	}
+
 	results := m.injector.Partition(ctx, request)
 
 	for _, r := range results {
@@ -49,6 +54,10 @@ func (m *concreteManager) Heal(
 	faultID string,
 ) error {
 	request := NewHealRequest(a, b, faultID)
+
+	if len(request.Links) == 0 {
+		return fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
+	}
 
 	results := m.injector.Heal(ctx, request)
 
