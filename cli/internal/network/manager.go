@@ -21,6 +21,8 @@ func NewManager(injector Injector) Manager {
 	}
 }
 
+// Partition isolates node A from node B in both directions
+// across every network they share. It's bidirectional.
 func (m *concreteManager) Partition(
 	ctx context.Context,
 	a topology.Node,

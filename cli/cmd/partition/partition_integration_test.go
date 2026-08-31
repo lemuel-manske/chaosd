@@ -76,6 +76,54 @@ services:
 	)
 }
 
+func TestPartitionCmd_RunningNodes_BlocksCommunicationBetweenThem_Bidirectional(t *testing.T) {
+	app := dockertest.StartComposeApp(t, "project-partition-2", `name: project-partition-2
+
+services:
+  node-a:
+    image: curlimages/curl
+    command: ["sleep", "infinity"]
+  node-b:
+    image: nginx:alpine
+`)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+
+	session, _ := sessionStore.Create("project-partition-2", app.ComposeFile)
+
+	dockertest.AssertCanReach(
+		t,
+		"project-partition-2",
+		"node-a",
+		"http://node-b",
+	)
+
+	output, err := runPartition(
+		t,
+		sessionStore,
+		session.ID,
+		"project-partition-2-node-a-1",
+		"project-partition-2-node-b-1",
+	)
+	assert.NoError(t, err)
+
+	assert.Contains(t, output, "partitioned")
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-partition-2",
+		"node-a",
+		"http://node-b",
+	)
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-partition-2",
+		"node-b",
+		"http://node-a",
+	)
+}
+
 func runPartition(
 	t *testing.T,
 	sessionStore session.SessionStore,

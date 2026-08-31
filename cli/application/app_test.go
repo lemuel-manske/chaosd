@@ -285,7 +285,51 @@ services:
 	assert.NoError(t, err)
 
 	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+}
 
+func TestParition_IsBidirectional(t *testing.T) {
+	file := clitest.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"chaosd:192.168.10.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"chaosd:192.168.10.2",
+			),
+		),
+	)
+	networkManager := networktest.NewStubManager()
+
+	app := NewApplication(
+		sessionStore,
+		dockerProvider,
+		networkManager,
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	assert.NoError(t, err)
+
+	err = app.Heal(context.Background(), session.ID, "chaosd-db-1", "chaosd-web-1")
 	assert.NoError(t, err)
 }
 

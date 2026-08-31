@@ -74,3 +74,76 @@ services:
 		"http://node-b",
 	)
 }
+
+func TestManager_PartitionAndHeal_IsBidirectional(t *testing.T) {
+	app := dockertest.StartComposeApp(t, "project-manager-2", `name: project-manager-2
+
+services:
+  node-a:
+    image: curlimages/curl
+    command: ["sleep", "infinity"]
+  node-b:
+    image: nginx:alpine
+`)
+
+	ctx := context.Background()
+
+	composeFile, err := docker.Parse(app.ComposeFile)
+	assert.NoError(t, err)
+
+	dockerProvider := dockertest.NewRealDockerProvider()
+	dockerClient, err := dockerProvider.NewClient()
+	assert.NoError(t, err)
+
+	tl, err := topology.Load(composeFile, ctx, dockerClient)
+	assert.NoError(t, err)
+
+	nodeA := tl.NodesByServiceName("node-a")[0]
+	nodeB := tl.NodesByServiceName("node-b")[0]
+	assert.NotNil(t, nodeA)
+	assert.NotNil(t, nodeB)
+
+	dockertest.AssertCanReach(
+		t,
+		"project-manager-2",
+		"node-a",
+		"http://node-b",
+	)
+
+	manager := network.NewManager(network.NewLinuxFirewallInjector())
+	faultID := "test-fault-id"
+
+	err = manager.Partition(ctx, nodeA, nodeB, faultID)
+	assert.NoError(t, err)
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-manager-2",
+		"node-a",
+		"http://node-b",
+	)
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-manager-2",
+		"node-b",
+		"http://node-a",
+	)
+
+	err = manager.Heal(ctx, nodeA, nodeB, faultID)
+	assert.NoError(t, err)
+
+	dockertest.AssertCanReach(
+		t,
+		"project-manager-2",
+		"node-a",
+		"http://node-b",
+	)
+
+	dockertest.AssertCanReach(
+		t,
+		"project-manager-2",
+		"node-b",
+		"http://node-a",
+	)
+}

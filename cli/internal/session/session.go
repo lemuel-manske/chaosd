@@ -67,6 +67,9 @@ func (s *Session) GetFault(nodeAName string, nodeBName string) *Fault {
 		if fault.NodeA == nodeAName && fault.NodeB == nodeBName {
 			return fault
 		}
+		if fault.NodeA == nodeBName && fault.NodeB == nodeAName {
+			return fault
+		}
 	}
 
 	return nil
