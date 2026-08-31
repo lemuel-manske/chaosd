@@ -1,8 +1,9 @@
-package network
+package network_test
 
 import (
 	"testing"
 
+	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/topology"
 
 	"github.com/stretchr/testify/assert"
@@ -36,9 +37,9 @@ func TestLinksBetween(t *testing.T) {
 		},
 	}
 
-	actual := LinksBetween(tl.Nodes[0], tl.Nodes[1])
+	actual := network.LinksBetween(tl.Nodes[0], tl.Nodes[1])
 
-	expected := []Link{
+	expected := []network.Link{
 		{
 			NetworkName: "backend",
 			SourceIP:    "172.21.0.2",
@@ -73,9 +74,9 @@ func TestLinksBetween_NoCommonNetworks(t *testing.T) {
 		},
 	}
 
-	actual := LinksBetween(tl.Nodes[0], tl.Nodes[1])
+	actual := network.LinksBetween(tl.Nodes[0], tl.Nodes[1])
 
-	expected := []Link{}
+	expected := []network.Link{}
 
 	assert.ElementsMatch(t, expected, actual)
 }

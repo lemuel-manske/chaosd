@@ -51,7 +51,7 @@ services:
 	assert.Contains(t, output, "partition\tweb-2")
 }
 
-func runEvents(t *testing.T, sessionStore session.Store, composeFile string) (string, error) {
+func runEvents(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
 	t.Helper()
 
 	dockerProvider := dockertest.NewRealDockerProvider()
@@ -70,7 +70,7 @@ func runEvents(t *testing.T, sessionStore session.Store, composeFile string) (st
 
 func runRestart(
 	t *testing.T,
-	sessionStore session.Store,
+	sessionStore session.SessionStore,
 	sessionID string,
 	serviceName string,
 ) (string, error) {
@@ -95,7 +95,7 @@ func runRestart(
 	)
 }
 
-func runLoad(t *testing.T, sessionStore session.Store, composeFile string) (string, error) {
+func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
 	t.Helper()
 
 	dockerProvider := dockertest.NewRealDockerProvider()
@@ -114,7 +114,7 @@ func runLoad(t *testing.T, sessionStore session.Store, composeFile string) (stri
 
 func runPartition(
 	t *testing.T,
-	sessionStore session.Store,
+	sessionStore session.SessionStore,
 	sessionID string,
 	nodeA string,
 	nodeB string,

@@ -16,14 +16,44 @@ type PartitionRequest struct {
 	Metadata RuleMetadata
 }
 
+func NewPartitionRequest(
+	nodeA topology.Node,
+	nodeB topology.Node,
+	faultID string,
+) PartitionRequest {
+	links := LinksBetween(nodeA, nodeB)
+
+	return PartitionRequest{
+		Links: links,
+		Metadata: RuleMetadata{
+			FaultID: faultID,
+		},
+	}
+}
+
 type HealRequest struct {
 	Links    []Link
 	Metadata RuleMetadata
 }
 
+func NewHealRequest(
+	nodeA topology.Node,
+	nodeB topology.Node,
+	faultID string,
+) HealRequest {
+	links := LinksBetween(nodeA, nodeB)
+
+	return HealRequest{
+		Links: links,
+		Metadata: RuleMetadata{
+			FaultID: faultID,
+		},
+	}
+}
+
 type ActionResult struct {
-	Link   Link
-	Result error
+	Link Link
+	Err  error
 }
 
 type Injector interface {
@@ -83,8 +113,8 @@ func (i *LinuxFirewallInjector) Partition(
 
 		if err != nil {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+				Link: l,
+				Err:  fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
 			})
 
 			continue
@@ -104,13 +134,13 @@ func (i *LinuxFirewallInjector) Partition(
 
 		if err != nil {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: fmt.Errorf("failed to partition %s -> %s: %v, output: %s", sourceIP, targetIP, err, string(output)),
+				Link: l,
+				Err:  fmt.Errorf("failed to partition %s -> %s: %v, output: %s", sourceIP, targetIP, err, string(output)),
 			})
 		} else {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: nil,
+				Link: l,
+				Err:  nil,
 			})
 		}
 	}
@@ -132,8 +162,8 @@ func (i *LinuxFirewallInjector) Heal(
 
 		if err != nil {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+				Link: l,
+				Err:  fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
 			})
 
 			continue
@@ -153,13 +183,13 @@ func (i *LinuxFirewallInjector) Heal(
 
 		if err != nil {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: fmt.Errorf("failed to heal %s -> %s: %v, output: %s", sourceIP, targetIP, err, string(output)),
+				Link: l,
+				Err:  fmt.Errorf("failed to heal %s -> %s: %v, output: %s", sourceIP, targetIP, err, string(output)),
 			})
 		} else {
 			results = append(results, ActionResult{
-				Link:   l,
-				Result: nil,
+				Link: l,
+				Err:  nil,
 			})
 		}
 	}
@@ -167,7 +197,7 @@ func (i *LinuxFirewallInjector) Heal(
 	return results
 }
 
-func (i* LinuxFirewallInjector) ensureCHAOSDChain() error {
+func (i *LinuxFirewallInjector) ensureCHAOSDChain() error {
 	cmd := exec.Command("iptables", "-L", chaosdChainName)
 	err := cmd.Run()
 

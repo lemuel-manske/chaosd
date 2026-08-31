@@ -13,62 +13,9 @@ import (
 	"chaosd/cli/internal/topology"
 )
 
-type EventType string
-
-const (
-	PartitionAppliedEvent EventType = "partition"
-	HealAppliedEvent      EventType = "heal"
-
-	RestartEvent EventType = "restart"
-)
-
-type PartitionAppliedEventData struct {
-	NodeAName string
-	NodeBName string
-}
-
-type HealAppliedEventData struct {
-	NodeAName string
-	NodeBName string
-}
-
-type RestartEventData struct {
-	ServiceName string
-}
-
-type Event struct {
-	Type      EventType
-	CreatedAt time.Time
-	Data      any
-}
-
-type EventStore interface {
-	Append(sessionID session.SessionID, event Event) error
-	List(sessionID session.SessionID) ([]Event, error)
-}
-
-type InMemoryEventStore struct {
-	events map[session.SessionID][]Event
-}
-
-func NewInMemoryEventStore() *InMemoryEventStore {
-	return &InMemoryEventStore{
-		events: make(map[session.SessionID][]Event),
-	}
-}
-
-func (s *InMemoryEventStore) Append(sessionID session.SessionID, event Event) error {
-	s.events[sessionID] = append(s.events[sessionID], event)
-	return nil
-}
-
-func (s *InMemoryEventStore) List(sessionID session.SessionID) ([]Event, error) {
-	return s.events[sessionID], nil
-}
-
 // Application represents the application layer of the CLI, to keep it (the CLI) thin
 type Application struct {
-	SessionStore   session.Store
+	SessionStore   session.SessionStore
 	DockerProvider docker.DockerProvider
 	NetworkManager network.Manager
 	Lifecycle      lifecycle.Lifecycle
@@ -77,7 +24,7 @@ type Application struct {
 }
 
 func NewApplication(
-	sessionStore session.Store,
+	sessionStore session.SessionStore,
 	dockerProvider docker.DockerProvider,
 	networkManager network.Manager,
 ) *Application {
@@ -285,13 +232,13 @@ func (app *Application) Partition(
 		return err
 	}
 
-	err = app.NetworkManager.Partition(ctx, *nodeA, *nodeB)
+	faultID, err := app.SessionStore.AddPartitionFault(sessionID, nodeAName, nodeBName)
 
 	if err != nil {
 		return err
 	}
 
-	err = app.SessionStore.AddPartitionFault(sessionID, nodeAName, nodeBName)
+	err = app.NetworkManager.Partition(ctx, *nodeA, *nodeB, string(faultID))
 
 	if err != nil {
 		return err
@@ -351,7 +298,7 @@ func (app *Application) Heal(
 		return err
 	}
 
-	fault := _session.FindFault(nodeAName, nodeBName)
+	fault := _session.GetFault(nodeAName, nodeBName)
 
 	if fault == nil {
 		return fmt.Errorf("no partition fault found between %s and %s", nodeAName, nodeBName)
@@ -361,7 +308,7 @@ func (app *Application) Heal(
 		return fmt.Errorf("partition fault between %s and %s is already healed", nodeAName, nodeBName)
 	}
 
-	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB)
+	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB, string(fault.ID))
 
 	if err != nil {
 		return err

@@ -6,6 +6,6 @@ import (
 	"chaosd/cli/internal/session"
 )
 
-func NewTmpSessionStore(t *testing.T) session.Store {
+func NewTmpSessionStore(t *testing.T) session.SessionStore {
 	return session.NewStore(t.TempDir())
 }

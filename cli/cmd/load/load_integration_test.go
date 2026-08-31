@@ -39,7 +39,7 @@ services:
 	assert.Equal(t, app.ComposeFile, s.ComposeFile)
 }
 
-func runLoad(t *testing.T, sessionStore session.Store, composeFile string) (string, error) {
+func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
 	t.Helper()
 
 	dockerProvider := dockertest.NewRealDockerProvider()

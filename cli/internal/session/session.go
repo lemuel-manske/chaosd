@@ -1,3 +1,8 @@
+// Package session provides APIs to store and retrieve sessions.
+// Fault identification is generated on this layer.
+
+// TODO: how to handle file writing more properly?
+
 package session
 
 import (
@@ -10,21 +15,27 @@ import (
 	"github.com/google/uuid"
 )
 
-type SessionID string
-
 const (
 	activeStatus = "active"
 	healedStatus = "healed"
 
 	partitionFaultType = "partition"
+
+	sessionFileExt = ".json"
 )
 
+type FaultID string
+
+func NewFaultID() FaultID {
+	return FaultID(uuid.NewString()) // TODO: consider using a more compact ID representation
+}
+
 type Fault struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	NodeA  string `json:"node_a"`
-	NodeB  string `json:"node_b"`
-	Status string `json:"status"`
+	ID     FaultID `json:"id"`
+	Type   string  `json:"type"`
+	NodeA  string  `json:"node_a"`
+	NodeB  string  `json:"node_b"`
+	Status string  `json:"status"`
 }
 
 func (f *Fault) IsPartition() bool {
@@ -35,16 +46,14 @@ func (f *Fault) IsHealed() bool {
 	return f.Status == healedStatus
 }
 
-func (f *Fault) Heal() bool {
-	if f.Status == healedStatus {
-		return false
-	}
+type SessionID string
 
-	f.Status = healedStatus
-
-	return true
+func NewSessionID() SessionID {
+	return SessionID(uuid.NewString()) // TODO: consider using a more compact ID representation
 }
 
+// Session is only responsible to list faults, not add them.
+// SessionStore API should be used to add faults to a session.
 type Session struct {
 	ID          SessionID `json:"id"`
 	Project     string    `json:"project"`
@@ -52,11 +61,7 @@ type Session struct {
 	Faults      []Fault   `json:"faults"`
 }
 
-func (s *Session) AddFault(fault Fault) {
-	s.Faults = append(s.Faults, fault)
-}
-
-func (s *Session) FindFault(nodeAName string, nodeBName string) *Fault {
+func (s *Session) GetFault(nodeAName string, nodeBName string) *Fault {
 	for i := range s.Faults {
 		fault := &s.Faults[i]
 		if fault.NodeA == nodeAName && fault.NodeB == nodeBName {
@@ -67,17 +72,34 @@ func (s *Session) FindFault(nodeAName string, nodeBName string) *Fault {
 	return nil
 }
 
-const sessionFileExt = ".json"
-
-type Store interface {
-	AddPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) error
+// SessionStore is responsible for managing sessions and their subordinates.
+type SessionStore interface {
+	AddPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) (FaultID, error)
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
 	Delete(id SessionID) error
 	Get(id SessionID) (*Session, error)
 	HealPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) error
 }
 
-func (s *concreteStore) HealPartitionFault(
+type ConcreteSessionStore struct {
+	dir string
+}
+
+func NewStore(dir string) SessionStore {
+	return &ConcreteSessionStore{dir: dir}
+}
+
+func NewDefaultStore() (SessionStore, error) {
+	home, err := os.UserHomeDir()
+
+	if err != nil {
+		return nil, fmt.Errorf("get user home dir: %w", err)
+	}
+
+	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
+}
+
+func (s *ConcreteSessionStore) HealPartitionFault(
 	sessionID SessionID,
 	nodeAName string,
 	nodeBName string,
@@ -87,16 +109,19 @@ func (s *concreteStore) HealPartitionFault(
 		return err
 	}
 
-	fault := _session.FindFault(nodeAName, nodeBName)
+	fault := _session.GetFault(nodeAName, nodeBName)
 	if fault == nil {
 		return fmt.Errorf("no partition fault found between %s and %s", nodeAName, nodeBName)
 	}
 
-	if !fault.Heal() {
+	if fault.IsHealed() {
 		return fmt.Errorf("partition fault between %s and %s is already healed", nodeAName, nodeBName)
 	}
 
-	path, err := s.sessionPath(sessionID)
+	// control fault healing, to now expose as a public API
+	fault.Status = healedStatus
+
+	path, err := s.createPathToSession(sessionID)
 	if err != nil {
 		return err
 	}
@@ -113,66 +138,48 @@ func (s *concreteStore) HealPartitionFault(
 	return nil
 }
 
-type concreteStore struct {
-	dir string
-}
-
-func NewStore(dir string) Store {
-	return &concreteStore{dir: dir}
-}
-
-func NewDefaultStore() (Store, error) {
-	home, err := os.UserHomeDir()
-
-	if err != nil {
-		return nil, fmt.Errorf("get user home dir: %w", err)
-	}
-
-	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
-}
-
-func (s *concreteStore) AddPartitionFault(
+func (s *ConcreteSessionStore) AddPartitionFault(
 	sessionID SessionID,
 	nodeAName string,
 	nodeBName string,
-) error {
+) (FaultID, error) {
 	session, err := s.Get(sessionID)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	fault := Fault{
-		ID:     uuid.NewString(),
+		ID:     NewFaultID(),
 		Type:   partitionFaultType,
 		NodeA:  nodeAName,
 		NodeB:  nodeBName,
 		Status: activeStatus,
 	}
 
-	session.AddFault(fault)
+	session.Faults = append(session.Faults, fault)
 
-	path, err := s.sessionPath(sessionID)
+	path, err := s.createPathToSession(sessionID)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	data, err := json.MarshalIndent(session, "", "  ")
 
 	if err != nil {
-		return fmt.Errorf("encode session: %w", err)
+		return "", fmt.Errorf("encode session: %w", err)
 	}
 
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("write session: %w", err)
+		return "", fmt.Errorf("write session: %w", err)
 	}
 
-	return nil
+	return fault.ID, nil
 }
 
-func (s *concreteStore) Get(id SessionID) (*Session, error) {
-	path, err := s.sessionPath(id)
+func (s *ConcreteSessionStore) Get(id SessionID) (*Session, error) {
+	path, err := s.createPathToSession(id)
 
 	if err != nil {
 		return nil, err
@@ -193,24 +200,24 @@ func (s *concreteStore) Get(id SessionID) (*Session, error) {
 	return &session, nil
 }
 
-func (s *concreteStore) Create(
+func (s *ConcreteSessionStore) Create(
 	projectName string,
 	composeFileAbsPath string,
 ) (*Session, error) {
-	id := uuid.NewString()
+	id := NewSessionID()
 
-	path, err := s.sessionPath(SessionID(id))
+	path, err := s.createPathToSession(id)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if err := os.MkdirAll(s.dir, 0700); err != nil {
+	if err = os.MkdirAll(s.dir, 0700); err != nil {
 		return nil, fmt.Errorf("create sessions directory: %w", err)
 	}
 
 	session := &Session{
-		ID:          SessionID(id),
+		ID:          id,
 		Project:     projectName,
 		ComposeFile: composeFileAbsPath,
 	}
@@ -228,8 +235,8 @@ func (s *concreteStore) Create(
 	return session, nil
 }
 
-func (s *concreteStore) Delete(id SessionID) error {
-	path, err := s.sessionPath(id)
+func (s *ConcreteSessionStore) Delete(id SessionID) error {
+	path, err := s.createPathToSession(id)
 
 	if err != nil {
 		return err
@@ -246,7 +253,7 @@ func (s *concreteStore) Delete(id SessionID) error {
 	return nil
 }
 
-func (s *concreteStore) sessionPath(id SessionID) (string, error) {
+func (s *ConcreteSessionStore) createPathToSession(id SessionID) (string, error) {
 	if id == "" {
 		return "", errors.New("session id cannot be empty")
 	}

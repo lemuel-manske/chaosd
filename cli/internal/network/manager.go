@@ -7,8 +7,8 @@ import (
 )
 
 type Manager interface {
-	Partition(ctx context.Context, a topology.Node, b topology.Node) error
-	Heal(ctx context.Context, a topology.Node, b topology.Node) error
+	Partition(ctx context.Context, a topology.Node, b topology.Node, faultID string) error
+	Heal(ctx context.Context, a topology.Node, b topology.Node, faultID string) error
 }
 
 type concreteManager struct {
@@ -25,21 +25,15 @@ func (m *concreteManager) Partition(
 	ctx context.Context,
 	a topology.Node,
 	b topology.Node,
+	faultID string,
 ) error {
-	links := LinksBetween(a, b)
-
-	request := PartitionRequest{
-		Links: links,
-		Metadata: RuleMetadata{
-			FaultID: createFaultID(a, b),
-		},
-	}
+	request := NewPartitionRequest(a, b, faultID)
 
 	results := m.injector.Partition(ctx, request)
 
 	for _, r := range results {
-		if r.Result != nil {
-			return r.Result
+		if r.Err != nil {
+			return r.Err
 		}
 	}
 
@@ -50,27 +44,17 @@ func (m *concreteManager) Heal(
 	ctx context.Context,
 	a topology.Node,
 	b topology.Node,
+	faultID string,
 ) error {
-	links := LinksBetween(a, b)
-
-	request := HealRequest{
-		Links: links,
-		Metadata: RuleMetadata{
-			FaultID: createFaultID(a, b),
-		},
-	}
+	request := NewHealRequest(a, b, faultID)
 
 	results := m.injector.Heal(ctx, request)
 
 	for _, r := range results {
-		if r.Result != nil {
-			return r.Result
+		if r.Err != nil {
+			return r.Err
 		}
 	}
 
 	return nil
-}
-
-func createFaultID(a topology.Node, b topology.Node) string {
-	return a.ContainerName + "-" + b.ContainerName
 }

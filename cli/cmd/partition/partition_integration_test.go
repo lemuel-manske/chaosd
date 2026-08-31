@@ -78,7 +78,7 @@ services:
 
 func runPartition(
 	t *testing.T,
-	sessionStore session.Store,
+	sessionStore session.SessionStore,
 	sessionID session.SessionID,
 	nodeA string,
 	nodeB string,
@@ -107,7 +107,7 @@ func runPartition(
 
 func runHeal(
 	t *testing.T,
-	sessionStore session.Store,
+	sessionStore session.SessionStore,
 	sessionID session.SessionID,
 	nodeA string,
 	nodeB string,

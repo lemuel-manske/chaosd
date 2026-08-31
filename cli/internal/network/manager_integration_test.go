@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLinuxFirewallInjector_PartitionAndHeal(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-firewall-1", `name: project-firewall-1
+func TestManager_PartitionAndHeal(t *testing.T) {
+	app := dockertest.StartComposeApp(t, "project-manager-1", `name: project-manager-1
 
 services:
   node-a:
@@ -39,46 +39,37 @@ services:
 	tl, err := topology.Load(composeFile, ctx, dockerClient)
 	assert.NoError(t, err)
 
-	nodaA := tl.NodesByServiceName("node-a")[0]
+	nodeA := tl.NodesByServiceName("node-a")[0]
 	nodeB := tl.NodesByServiceName("node-b")[0]
-	assert.NotNil(t, nodaA)
+	assert.NotNil(t, nodeA)
 	assert.NotNil(t, nodeB)
 
 	dockertest.AssertCanReach(
 		t,
-		"project-firewall-1",
+		"project-manager-1",
 		"node-a",
 		"http://node-b",
 	)
 
-	linuxFirewallInjector := network.NewLinuxFirewallInjector()
+	manager := network.NewManager(network.NewLinuxFirewallInjector())
+	faultID := "test-fault-id"
 
-	fakeFaultID := "test-fault-id"
-
-	partitionRequest := network.NewPartitionRequest(nodaA, nodeB, fakeFaultID)
-	results := linuxFirewallInjector.Partition(ctx, partitionRequest)
-
-	for _, result := range results {
-		assert.NoError(t, result.Err)
-	}
+	err = manager.Partition(ctx, nodeA, nodeB, faultID)
+	assert.NoError(t, err)
 
 	dockertest.AssertCannotReach(
 		t,
-		"project-firewall-1",
+		"project-manager-1",
 		"node-a",
 		"http://node-b",
 	)
 
-	healRequest := network.NewHealRequest(nodaA, nodeB, fakeFaultID)
-	results = linuxFirewallInjector.Heal(ctx, healRequest)
-
-	for _, result := range results {
-		assert.NoError(t, result.Err)
-	}
+	err = manager.Heal(ctx, nodeA, nodeB, faultID)
+	assert.NoError(t, err)
 
 	dockertest.AssertCanReach(
 		t,
-		"project-firewall-1",
+		"project-manager-1",
 		"node-a",
 		"http://node-b",
 	)

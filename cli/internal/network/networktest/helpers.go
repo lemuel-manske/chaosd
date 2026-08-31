@@ -33,7 +33,7 @@ func (i *StubInjector) Partition(
 	for _, l := range request.Links {
 		results = append(results, network.ActionResult{
 			Link:   l,
-			Result: nil,
+			Err: nil,
 		})
 	}
 
@@ -49,7 +49,7 @@ func (i *StubInjector) Heal(
 	for _, l := range request.Links {
 		results = append(results, network.ActionResult{
 			Link:   l,
-			Result: nil,
+			Err: nil,
 		})
 	}
 
