@@ -114,7 +114,7 @@ func (i *LinuxFirewallInjector) Partition(
 		if err != nil {
 			results = append(results, ActionResult{
 				Link: l,
-				Err:  fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+				Err:  fmt.Errorf("failed to ensure CHAOSD firewall setup: %v", err),
 			})
 
 			continue
@@ -163,7 +163,7 @@ func (i *LinuxFirewallInjector) Heal(
 		if err != nil {
 			results = append(results, ActionResult{
 				Link: l,
-				Err:  fmt.Errorf("failed to ensure CHAOSD chain exists: %v", err),
+				Err:  fmt.Errorf("failed to ensure CHAOSD firewall setup: %v", err),
 			})
 
 			continue
@@ -198,23 +198,53 @@ func (i *LinuxFirewallInjector) Heal(
 }
 
 func (i *LinuxFirewallInjector) ensureCHAOSDChain() error {
+	if err := i.ensureChain(); err != nil {
+		return err
+	}
+
+	if err := i.ensureJump(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *LinuxFirewallInjector) ensureChain() error {
 	cmd := exec.Command("iptables", "-L", chaosdChainName)
-	err := cmd.Run()
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
 
-	if err != nil {
-		cmd := exec.Command("iptables", "-N", chaosdChainName)
-		err = cmd.Run()
+	cmd = exec.Command("iptables", "-N", chaosdChainName)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create CHAOSD chain: %v", err)
+	}
 
-		if err != nil {
-			return fmt.Errorf("failed to create CHAOSD chain: %v", err)
-		}
+	return nil
+}
 
-		cmd = exec.Command("iptables", "-I", dockerChainName, "-j", chaosdChainName)
-		err = cmd.Run()
+func (i *LinuxFirewallInjector) ensureJump() error {
+	cmd := exec.Command(
+		"iptables",
+		"-C", dockerChainName,
+		"-j", chaosdChainName,
+	)
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
 
-		if err != nil {
-			return fmt.Errorf("failed to insert %s chain into %s: %v", chaosdChainName, dockerChainName, err)
-		}
+	cmd = exec.Command(
+		"iptables",
+		"-I", dockerChainName,
+		"-j", chaosdChainName,
+	)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf(
+			"failed to insert %s chain into %s: %v",
+			chaosdChainName,
+			dockerChainName,
+			err,
+		)
 	}
 
 	return nil
