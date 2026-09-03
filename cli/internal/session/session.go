@@ -84,25 +84,15 @@ type SessionStore interface {
 	HealPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) error
 }
 
-type ConcreteSessionStore struct {
+type FileSessionStore struct {
 	dir string
 }
 
-func NewStore(dir string) SessionStore {
-	return &ConcreteSessionStore{dir: dir}
+func NewFileSessionStore(dir string) SessionStore {
+	return &FileSessionStore{dir: dir}
 }
 
-func NewDefaultStore() (SessionStore, error) {
-	home, err := os.UserHomeDir()
-
-	if err != nil {
-		return nil, fmt.Errorf("get user home dir: %w", err)
-	}
-
-	return NewStore(filepath.Join(home, ".chaosd", "sessions")), nil
-}
-
-func (s *ConcreteSessionStore) HealPartitionFault(
+func (s *FileSessionStore) HealPartitionFault(
 	sessionID SessionID,
 	nodeAName string,
 	nodeBName string,
@@ -141,7 +131,7 @@ func (s *ConcreteSessionStore) HealPartitionFault(
 	return nil
 }
 
-func (s *ConcreteSessionStore) AddPartitionFault(
+func (s *FileSessionStore) AddPartitionFault(
 	sessionID SessionID,
 	nodeAName string,
 	nodeBName string,
@@ -181,7 +171,7 @@ func (s *ConcreteSessionStore) AddPartitionFault(
 	return fault.ID, nil
 }
 
-func (s *ConcreteSessionStore) Get(id SessionID) (*Session, error) {
+func (s *FileSessionStore) Get(id SessionID) (*Session, error) {
 	path, err := s.createPathToSession(id)
 
 	if err != nil {
@@ -203,7 +193,7 @@ func (s *ConcreteSessionStore) Get(id SessionID) (*Session, error) {
 	return &session, nil
 }
 
-func (s *ConcreteSessionStore) Create(
+func (s *FileSessionStore) Create(
 	projectName string,
 	composeFileAbsPath string,
 ) (*Session, error) {
@@ -238,7 +228,7 @@ func (s *ConcreteSessionStore) Create(
 	return session, nil
 }
 
-func (s *ConcreteSessionStore) Delete(id SessionID) error {
+func (s *FileSessionStore) Delete(id SessionID) error {
 	path, err := s.createPathToSession(id)
 
 	if err != nil {
@@ -256,19 +246,21 @@ func (s *ConcreteSessionStore) Delete(id SessionID) error {
 	return nil
 }
 
-func (s *ConcreteSessionStore) createPathToSession(id SessionID) (string, error) {
+func (s *FileSessionStore) createPathToSession(id SessionID) (string, error) {
 	if id == "" {
 		return "", errors.New("session id cannot be empty")
 	}
 
-	if !s.isValidSessionID(string(id)) {
+	stringID := string(id)
+
+	if !s.isValidSessionID(stringID) {
 		return "", fmt.Errorf("invalid session id: %q", id)
 	}
 
-	return filepath.Join(s.dir, string(id)+sessionFileExt), nil
+	return filepath.Join(s.dir, stringID+sessionFileExt), nil
 }
 
-func (s *ConcreteSessionStore) isValidSessionID(id string) bool {
+func (s *FileSessionStore) isValidSessionID(id string) bool {
 	_, err := uuid.Parse(id)
 
 	return err == nil

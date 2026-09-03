@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"chaosd/cli/adapters"
 	"chaosd/cli/application"
 	"chaosd/cli/cmd/events"
 	"chaosd/cli/cmd/load"
@@ -12,7 +13,6 @@ import (
 	"chaosd/cli/cmd/restart"
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/network"
-	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,15 @@ import (
 func Init(rootCmd *cobra.Command) {
 	dockerProvider := docker.NewDockerProvider()
 
-	sessionStore, err := session.NewDefaultStore()
+	eventStore, err := adapters.NewDefaultEventStore()
+
+	if err != nil {
+		msg := fmt.Errorf("failed to create event store: %v", err)
+
+		panic(msg)
+	}
+
+	sessionStore, err := adapters.NewDefaultSessionStore()
 
 	if err != nil {
 		msg := fmt.Errorf("failed to create session store: %v", err)
@@ -34,6 +42,7 @@ func Init(rootCmd *cobra.Command) {
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)

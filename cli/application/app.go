@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"chaosd/cli/internal/docker"
+	"chaosd/cli/internal/event"
 	"chaosd/cli/internal/lifecycle"
 	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/session"
@@ -20,11 +21,12 @@ type Application struct {
 	NetworkManager network.Manager
 	Lifecycle      lifecycle.Lifecycle
 
-	events EventStore
+	events event.EventStore
 }
 
 func NewApplication(
 	sessionStore session.SessionStore,
+	eventStore event.EventStore,
 	dockerProvider docker.DockerProvider,
 	networkManager network.Manager,
 ) *Application {
@@ -37,12 +39,12 @@ func NewApplication(
 	lifecycle := lifecycle.NewLifecycle(dockerClient)
 
 	return &Application{
-		SessionStore:   sessionStore,
 		DockerProvider: dockerProvider,
-		NetworkManager: networkManager,
 		Lifecycle:      lifecycle,
+		NetworkManager: networkManager,
+		SessionStore:   sessionStore,
 
-		events: NewInMemoryEventStore(),
+		events: eventStore,
 	}
 }
 
@@ -166,10 +168,10 @@ func (app *Application) RestartService(
 
 	results = manager.Restart(ctx, nodes)
 
-	app.events.Append(sessionID, Event{
-		Type:      RestartEvent,
+	app.events.Append(sessionID, event.Event{
+		Type:      event.RestartEvent,
 		CreatedAt: time.Now(),
-		Data: RestartEventData{
+		Data: event.RestartEventData{
 			ServiceName: serviceName,
 		},
 	})
@@ -180,7 +182,7 @@ func (app *Application) RestartService(
 func (app *Application) ListEvents(
 	ctx context.Context,
 	sessionID session.SessionID,
-) ([]Event, error) {
+) ([]event.Event, error) {
 	events, err := app.events.List(sessionID)
 
 	if err != nil {
@@ -244,10 +246,10 @@ func (app *Application) Partition(
 		return err
 	}
 
-	app.events.Append(sessionID, Event{
-		Type:      PartitionAppliedEvent,
+	app.events.Append(sessionID, event.Event{
+		Type:      event.PartitionAppliedEvent,
 		CreatedAt: time.Now(),
-		Data: PartitionAppliedEventData{
+		Data: event.PartitionAppliedEventData{
 			NodeAName: nodeAName,
 			NodeBName: nodeBName,
 		},
@@ -320,10 +322,10 @@ func (app *Application) Heal(
 		return err
 	}
 
-	app.events.Append(sessionID, Event{
-		Type:      HealAppliedEvent,
+	app.events.Append(sessionID, event.Event{
+		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
-		Data: HealAppliedEventData{
+		Data: event.HealAppliedEventData{
 			NodeAName: nodeAName,
 			NodeBName: nodeBName,
 		},

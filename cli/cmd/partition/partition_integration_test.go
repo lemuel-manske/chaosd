@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"chaosd/cli/application"
+	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/session"
 
 	"chaosd/cli/clitest"
@@ -133,11 +134,13 @@ func runPartition(
 ) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -162,11 +165,13 @@ func runHeal(
 ) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)

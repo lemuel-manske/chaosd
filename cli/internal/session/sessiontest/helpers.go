@@ -7,5 +7,5 @@ import (
 )
 
 func NewTmpSessionStore(t *testing.T) session.SessionStore {
-	return session.NewStore(t.TempDir())
+	return session.NewFileSessionStore(t.TempDir())
 }

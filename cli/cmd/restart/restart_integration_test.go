@@ -9,6 +9,7 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
@@ -100,6 +101,7 @@ func runRestart(t *testing.T, composeFile string, serviceName string) (string, e
 	t.Helper()
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
 	createdSession, err := sessionStore.Create("project", composeFile)
 
@@ -110,6 +112,7 @@ func runRestart(t *testing.T, composeFile string, serviceName string) (string, e
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)

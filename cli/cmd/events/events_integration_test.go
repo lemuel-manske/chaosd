@@ -14,6 +14,7 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
@@ -54,11 +55,13 @@ services:
 func runEvents(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -76,11 +79,13 @@ func runRestart(
 ) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -98,11 +103,13 @@ func runRestart(
 func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -121,11 +128,13 @@ func runPartition(
 ) (string, error) {
 	t.Helper()
 
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)

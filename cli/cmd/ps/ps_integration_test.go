@@ -9,6 +9,7 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
@@ -104,6 +105,7 @@ func runPs(t *testing.T, composeFile string) (string, error) {
 	t.Helper()
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
 	createdSession, err := sessionStore.Create("project", composeFile)
 
@@ -114,6 +116,7 @@ func runPs(t *testing.T, composeFile string) (string, error) {
 
 	app := application.NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)

@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"chaosd/cli/internal/event"
 	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
+	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
@@ -17,24 +19,26 @@ import (
 
 func TestGetTopology_NonexistentSession_ReturnsError(t *testing.T) {
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewEmptyDockerProvider()
 	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
 
-	session_id := session.SessionID("session1")
+	sessionID := session.SessionID("session1")
 
-	topology, err := app.GetTopology(context.Background(), session_id)
+	topology, err := app.GetTopology(context.Background(), sessionID)
 
 	assert.Nil(t, topology)
 
 	assert.Error(t, err)
 
-	assert.Contains(t, err.Error(), `read session "session1"`)
+	assert.Contains(t, err.Error(), `invalid session id`)
 }
 
 func TestGetTopology_RunningContainer_ReturnsTopology(t *testing.T) {
@@ -45,6 +49,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -60,6 +65,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -83,11 +89,13 @@ func TestLoad_InvalidYAML_ReturnsError(t *testing.T) {
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewEmptyDockerProvider()
 	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -109,11 +117,13 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewEmptyDockerProvider()
 	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -140,11 +150,13 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewEmptyDockerProvider()
 	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -168,6 +180,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -183,6 +196,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -210,6 +224,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -232,6 +247,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -253,6 +269,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -275,6 +292,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -298,6 +316,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -320,6 +339,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -374,6 +394,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -396,6 +417,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -410,12 +432,12 @@ services:
 
 	assert.Len(t, events, 1)
 
-	expectedData := PartitionAppliedEventData{
+	expectedData := event.PartitionAppliedEventData{
 		NodeAName: "chaosd-web-1",
 		NodeBName: "chaosd-db-1",
 	}
 
-	assert.Equal(t, PartitionAppliedEvent, events[0].Type)
+	assert.Equal(t, event.PartitionAppliedEvent, events[0].Type)
 	assert.Equal(t, expectedData, events[0].Data)
 }
 
@@ -429,6 +451,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -451,6 +474,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -468,12 +492,12 @@ services:
 
 	assert.Len(t, events, 2)
 
-	expectedData := HealAppliedEventData{
+	expectedData := event.HealAppliedEventData{
 		NodeAName: "chaosd-web-1",
 		NodeBName: "chaosd-db-1",
 	}
 
-	assert.Equal(t, HealAppliedEvent, events[1].Type)
+	assert.Equal(t, event.HealAppliedEvent, events[1].Type)
 	assert.Equal(t, expectedData, events[1].Data)
 }
 
@@ -487,6 +511,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -511,6 +536,7 @@ services:
 
 	app := NewApplication(
 		sessionStore,
+		eventStore,
 		dockerProvider,
 		networkManager,
 	)
@@ -526,10 +552,10 @@ services:
 
 	assert.Len(t, events, 1)
 
-	expectedData := RestartEventData{
+	expectedData := event.RestartEventData{
 		ServiceName: "web",
 	}
 
-	assert.Equal(t, RestartEvent, events[0].Type)
+	assert.Equal(t, event.RestartEvent, events[0].Type)
 	assert.Equal(t, expectedData, events[0].Data)
 }
