@@ -22,12 +22,19 @@ const (
 	partitionFaultType = "partition"
 
 	sessionFileExt = ".json"
+
+	sessionIDLength = 6
+	sessionIDPrefix = "sess-"
+
+	faultIDLength = 4
+	faultIDPrefix = "fault-"
 )
 
 type FaultID string
 
 func NewFaultID() FaultID {
-	return FaultID(uuid.NewString()) // TODO: consider using a more compact ID representation
+	id := uuid.NewString()
+	return FaultID(faultIDPrefix + id[:faultIDLength])
 }
 
 type Fault struct {
@@ -49,7 +56,8 @@ func (f *Fault) IsHealed() bool {
 type SessionID string
 
 func NewSessionID() SessionID {
-	return SessionID(uuid.NewString()) // TODO: consider using a more compact ID representation
+	id := uuid.NewString()
+	return SessionID(sessionIDPrefix + id[:sessionIDLength])
 }
 
 // Session is only responsible to list faults, not add them.
@@ -261,7 +269,5 @@ func (s *FileSessionStore) createPathToSession(id SessionID) (string, error) {
 }
 
 func (s *FileSessionStore) isValidSessionID(id string) bool {
-	_, err := uuid.Parse(id)
-
-	return err == nil
+	return len(id) == len(sessionIDPrefix)+sessionIDLength && id[:len(sessionIDPrefix)] == sessionIDPrefix
 }
