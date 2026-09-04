@@ -1,8 +1,5 @@
 // Package session provides APIs to store and retrieve sessions.
 // Fault identification is generated on this layer.
-
-// TODO: how to handle file writing more properly?
-
 package session
 
 import (
@@ -11,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"chaosd/cli/internal/storage"
 
 	"github.com/google/uuid"
 )
@@ -93,11 +92,14 @@ type SessionStore interface {
 }
 
 type FileSessionStore struct {
-	dir string
+	writer storage.AtomicWriter
+	dir    string
 }
 
 func NewFileSessionStore(dir string) SessionStore {
-	return &FileSessionStore{dir: dir}
+	writer := storage.NewAtomicFileWriter()
+
+	return &FileSessionStore{dir: dir, writer: writer}
 }
 
 func (s *FileSessionStore) HealPartitionFault(
@@ -132,7 +134,7 @@ func (s *FileSessionStore) HealPartitionFault(
 		return fmt.Errorf("encode session: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := s.writer.Write(path, data, 0600); err != nil {
 		return fmt.Errorf("write session: %w", err)
 	}
 
@@ -172,7 +174,7 @@ func (s *FileSessionStore) AddPartitionFault(
 		return "", fmt.Errorf("encode session: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := s.writer.Write(path, data, 0600); err != nil {
 		return "", fmt.Errorf("write session: %w", err)
 	}
 
@@ -229,7 +231,7 @@ func (s *FileSessionStore) Create(
 		return nil, fmt.Errorf("encode session: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := s.writer.Write(path, data, 0600); err != nil {
 		return nil, fmt.Errorf("write session: %w", err)
 	}
 

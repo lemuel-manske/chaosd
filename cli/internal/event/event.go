@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"chaosd/cli/internal/session"
+	"chaosd/cli/internal/storage"
 )
 
 type EventType string
@@ -105,13 +106,14 @@ func (s *InMemoryEventStore) List(sessionID session.SessionID) ([]Event, error) 
 }
 
 type FileEventStore struct {
-	dir string
+	writer storage.AtomicWriter
+	dir    string
 }
 
 func NewFileEventStore(dir string) EventStore {
-	return &FileEventStore{
-		dir: dir,
-	}
+	writer := storage.NewAtomicFileWriter()
+
+	return &FileEventStore{dir: dir, writer: writer}
 }
 
 func (s *FileEventStore) Append(sessionID session.SessionID, event Event) error {
@@ -135,7 +137,7 @@ func (s *FileEventStore) Append(sessionID session.SessionID, event Event) error 
 		return fmt.Errorf("encode events: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := s.writer.Write(path, data, 0600); err != nil {
 		return fmt.Errorf("write events: %w", err)
 	}
 
