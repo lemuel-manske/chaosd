@@ -14,11 +14,11 @@ import (
 func TestRestartLifecycle(t *testing.T) {
 	dockerClient := &dockertest.DockerClientMock{}
 
-	l := NewLifecycle(dockerClient)
+	r := NewDockerRestarter(dockerClient)
 
 	ctx := context.Background()
 
-	res := l.Restart(ctx, []topology.Node{
+	res := r.Restart(ctx, []topology.Node{
 		{
 			Service:       "web",
 			ContainerID:   "1234567890",
@@ -43,11 +43,11 @@ func TestRestartLifecycleWithError(t *testing.T) {
 		},
 	}
 
-	l := NewLifecycle(dockerClient)
+	r := NewDockerRestarter(dockerClient)
 
 	ctx := context.Background()
 
-	res := l.Restart(ctx, []topology.Node{
+	res := r.Restart(ctx, []topology.Node{
 		{
 			Service:       "web",
 			ContainerID:   "1234567890",

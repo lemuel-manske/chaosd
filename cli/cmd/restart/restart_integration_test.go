@@ -111,13 +111,13 @@ func runRestart(t *testing.T, composeFile string, serviceName string) (string, e
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewRestartCmd(*app)
+	cmd := NewRestartCmd(app)
 
 	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID), serviceName)
 }

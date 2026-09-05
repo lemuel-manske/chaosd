@@ -41,18 +41,18 @@ func Init(rootCmd *cobra.Command) {
 	)
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	rootCmd.AddCommand(events.NewEventsCmd(*app))
-	rootCmd.AddCommand(load.NewLoadCmd(*app))
-	rootCmd.AddCommand(partition.NewHealCmd(*app))
-	rootCmd.AddCommand(partition.NewPartitionCmd(*app))
-	rootCmd.AddCommand(ps.NewPsCmd(*app))
-	rootCmd.AddCommand(restart.NewRestartCmd(*app))
+	rootCmd.AddCommand(events.NewEventsCmd(app))
+	rootCmd.AddCommand(load.NewLoadCmd(app))
+	rootCmd.AddCommand(partition.NewHealCmd(app))
+	rootCmd.AddCommand(partition.NewPartitionCmd(app))
+	rootCmd.AddCommand(ps.NewPsCmd(app))
+	rootCmd.AddCommand(restart.NewRestartCmd(app))
 }
 
 func Execute(rootCmd *cobra.Command) {

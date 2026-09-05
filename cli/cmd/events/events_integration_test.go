@@ -10,6 +10,7 @@ import (
 	"chaosd/cli/cmd/load"
 	"chaosd/cli/cmd/partition"
 	"chaosd/cli/cmd/restart"
+	"chaosd/cli/internal/event"
 	"chaosd/cli/internal/session"
 
 	"chaosd/cli/clitest"
@@ -31,42 +32,59 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
-	loadOutput, err := runLoad(t, sessionStore, app.ComposeFile)
+	loadOutput, err := runLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
 	sessionID := strings.TrimSpace(loadOutput)
 
-	_, err = runRestart(t, sessionStore, sessionID, "web-1")
+	_, err = runRestart(t, sessionStore, eventStore, sessionID, "web-1")
 	assert.NoError(t, err)
 
-	_, err = runPartition(t, sessionStore, sessionID, "web-1", "web-2")
+	_, err = runPartition(
+		t,
+		sessionStore,
+		eventStore,
+		sessionID,
+		"project-events-1-web-1-1",
+		"project-events-1-web-2-1",
+	)
 	assert.NoError(t, err)
 
-	output, err := runEvents(t, sessionStore, sessionID)
+	output, err := runEvents(t, sessionStore, eventStore, sessionID)
+	assert.NoError(t, err)
+
+	_, err = runHeal(
+		t,
+		sessionStore,
+		eventStore,
+		sessionID,
+		"project-events-1-web-1-1",
+		"project-events-1-web-2-1",
+	)
 	assert.NoError(t, err)
 
 	assert.Contains(t, output, "TIME\tTYPE\tTARGET")
 	assert.Contains(t, output, "restart\tweb-1")
-	assert.Contains(t, output, "partition\tweb-1")
-	assert.Contains(t, output, "partition\tweb-2")
+	assert.Contains(t, output, "partition\tproject-events-1-web-1-1")
+	assert.Contains(t, output, "partition\tproject-events-1-web-2-1")
 }
 
-func runEvents(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
+func runEvents(t *testing.T, sessionStore session.SessionStore, eventStore event.EventStore, composeFile string) (string, error) {
 	t.Helper()
 
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewEventsCmd(*app)
+	cmd := NewEventsCmd(app)
 
 	return clitest.ExecuteCommand(t, cmd, composeFile)
 }
@@ -74,23 +92,23 @@ func runEvents(t *testing.T, sessionStore session.SessionStore, composeFile stri
 func runRestart(
 	t *testing.T,
 	sessionStore session.SessionStore,
+	eventStore event.EventStore,
 	sessionID string,
 	serviceName string,
 ) (string, error) {
 	t.Helper()
 
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := restart.NewRestartCmd(*app)
+	cmd := restart.NewRestartCmd(app)
 
 	return clitest.ExecuteCommand(
 		t,
@@ -100,21 +118,20 @@ func runRestart(
 	)
 }
 
-func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
+func runLoad(t *testing.T, sessionStore session.SessionStore, eventStore event.EventStore, composeFile string) (string, error) {
 	t.Helper()
 
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := load.NewLoadCmd(*app)
+	cmd := load.NewLoadCmd(app)
 
 	return clitest.ExecuteCommand(t, cmd, composeFile)
 }
@@ -122,28 +139,54 @@ func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string
 func runPartition(
 	t *testing.T,
 	sessionStore session.SessionStore,
+	eventStore event.EventStore,
 	sessionID string,
 	nodeA string,
 	nodeB string,
 ) (string, error) {
 	t.Helper()
 
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewRealDockerProvider()
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := partition.NewPartitionCmd(*app)
+	cmd := partition.NewPartitionCmd(app)
 
 	return clitest.ExecuteCommand(
 		t,
 		cmd,
+		sessionID,
+		nodeA,
+		nodeB,
+	)
+}
+
+func runHeal(
+	t *testing.T,
+	sessionStore session.SessionStore,
+	eventStore event.EventStore,
+	sessionID string,
+	nodeA string,
+	nodeB string,
+) (string, error) {
+	t.Helper()
+
+	app := application.NewApplication(
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockertest.NewRealDockerProvider()),
+		application.WithNetworkManager(networktest.NewRealManager()),
+	)
+
+	return clitest.ExecuteCommand(
+		t,
+		partition.NewHealCmd(app),
 		sessionID,
 		nodeA,
 		nodeB,

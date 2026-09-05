@@ -16,36 +16,47 @@ import (
 
 // Application represents the application layer of the CLI, to keep it (the CLI) thin
 type Application struct {
-	SessionStore   session.SessionStore
 	DockerProvider docker.DockerProvider
+	EventStore     event.EventStore
 	NetworkManager network.Manager
-	Lifecycle      lifecycle.Lifecycle
-
-	events event.EventStore
+	Restarter      lifecycle.Restarter
+	SessionStore   session.SessionStore
 }
 
-func NewApplication(
-	sessionStore session.SessionStore,
-	eventStore event.EventStore,
-	dockerProvider docker.DockerProvider,
-	networkManager network.Manager,
-) *Application {
-	dockerClient, err := dockerProvider.NewClient()
+type AppOption func(*Application)
 
-	if err != nil {
-		panic(err)
+func WithDockerProvider(provider docker.DockerProvider) AppOption {
+	return func(app *Application) {
+		app.DockerProvider = provider
+	}
+}
+
+func WithEventStore(store event.EventStore) AppOption {
+	return func(app *Application) {
+		app.EventStore = store
+	}
+}
+
+func WithSessionStore(store session.SessionStore) AppOption {
+	return func(app *Application) {
+		app.SessionStore = store
+	}
+}
+
+func WithNetworkManager(manager network.Manager) AppOption {
+	return func(app *Application) {
+		app.NetworkManager = manager
+	}
+}
+
+func NewApplication(opts ...AppOption) Application {
+	app := Application{}
+
+	for _, opt := range opts {
+		opt(&app)
 	}
 
-	lifecycle := lifecycle.NewLifecycle(dockerClient)
-
-	return &Application{
-		DockerProvider: dockerProvider,
-		Lifecycle:      lifecycle,
-		NetworkManager: networkManager,
-		SessionStore:   sessionStore,
-
-		events: eventStore,
-	}
+	return app
 }
 
 func (app *Application) GetTopology(
@@ -164,11 +175,17 @@ func (app *Application) RestartService(
 		return results, err
 	}
 
-	manager := lifecycle.NewLifecycle(cli)
+	restarter := lifecycle.NewDockerRestarter(cli)
 
-	results = manager.Restart(ctx, nodes)
+	results = restarter.Restart(ctx, nodes)
 
-	app.events.Append(sessionID, event.Event{
+	for _, result := range results {
+		if result.Err != nil {
+			return results, fmt.Errorf("failed to restart service %s: %v", serviceName, result.Err)
+		}
+	}
+
+	app.EventStore.Append(sessionID, event.Event{
 		Type:      event.RestartEvent,
 		CreatedAt: time.Now(),
 		Data: event.RestartEventData{
@@ -183,7 +200,7 @@ func (app *Application) ListEvents(
 	ctx context.Context,
 	sessionID session.SessionID,
 ) ([]event.Event, error) {
-	events, err := app.events.List(sessionID)
+	events, err := app.EventStore.List(sessionID)
 
 	if err != nil {
 		return nil, err
@@ -246,7 +263,7 @@ func (app *Application) Partition(
 		return err
 	}
 
-	app.events.Append(sessionID, event.Event{
+	app.EventStore.Append(sessionID, event.Event{
 		Type:      event.PartitionAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.PartitionAppliedEventData{
@@ -322,7 +339,7 @@ func (app *Application) Heal(
 		return err
 	}
 
-	app.events.Append(sessionID, event.Event{
+	app.EventStore.Append(sessionID, event.Event{
 		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.HealAppliedEventData{

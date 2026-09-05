@@ -9,8 +9,11 @@ import (
 	"github.com/moby/moby/client"
 )
 
-type Lifecycle struct {
-	dockerClient docker.DockerClient
+type Restarter interface {
+	Restart(
+		ctx context.Context,
+		nodes []topology.Node,
+	) []ActionResult
 }
 
 type ActionResult struct {
@@ -18,20 +21,24 @@ type ActionResult struct {
 	Err  error
 }
 
-func NewLifecycle(dockerClient docker.DockerClient) Lifecycle {
-	return Lifecycle{
+type DockerRestarter struct {
+	dockerClient docker.DockerClient
+}
+
+func NewDockerRestarter(dockerClient docker.DockerClient) *DockerRestarter {
+	return &DockerRestarter{
 		dockerClient: dockerClient,
 	}
 }
 
-func (l *Lifecycle) Restart(ctx context.Context, nodes []topology.Node) []ActionResult {
+func (r *DockerRestarter) Restart(ctx context.Context, nodes []topology.Node) []ActionResult {
 	results := make([]ActionResult, 0, len(nodes))
 
 	// best-effort restart: we attempt to restart all nodes, even if some fail
 	for _, node := range nodes {
 		opts := client.ContainerRestartOptions{}
 
-		_, err := l.dockerClient.RestartContainer(
+		_, err := r.dockerClient.RestartContainer(
 			ctx,
 			node.ContainerID,
 			opts,

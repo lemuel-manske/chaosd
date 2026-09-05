@@ -82,8 +82,7 @@ func TestPartitionCmd_RunningNodes_BlocksCommunicationBetweenThem_Bidirectional(
 
 services:
   node-a:
-    image: curlimages/curl
-    command: ["sleep", "infinity"]
+    image: wbitt/network-multitool
   node-b:
     image: nginx:alpine
 `)
@@ -123,6 +122,19 @@ services:
 		"node-b",
 		"http://node-a",
 	)
+
+	output, err = runHeal(
+		t,
+		sessionStore,
+		session.ID,
+		"project-partition-2-node-a-1",
+		"project-partition-2-node-b-1",
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, output, "healed")
+
+	dockertest.AssertCanReach(t, "project-partition-2", "node-a", "http://node-b")
+	dockertest.AssertCanReach(t, "project-partition-2", "node-b", "http://node-a")
 }
 
 func runPartition(
@@ -139,13 +151,13 @@ func runPartition(
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewPartitionCmd(*app)
+	cmd := NewPartitionCmd(app)
 
 	return clitest.ExecuteCommand(
 		t,
@@ -170,13 +182,13 @@ func runHeal(
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewHealCmd(*app)
+	cmd := NewHealCmd(app)
 
 	return clitest.ExecuteCommand(
 		t,

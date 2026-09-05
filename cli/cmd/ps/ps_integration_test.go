@@ -115,13 +115,13 @@ func runPs(t *testing.T, composeFile string) (string, error) {
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewPsCmd(*app)
+	cmd := NewPsCmd(app)
 
 	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID))
 }

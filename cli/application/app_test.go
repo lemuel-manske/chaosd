@@ -10,7 +10,6 @@ import (
 
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
-	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
@@ -19,15 +18,9 @@ import (
 
 func TestGetTopology_NonexistentSession_ReturnsError(t *testing.T) {
 	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewEmptyDockerProvider()
-	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithSessionStore(sessionStore),
 	)
 
 	sessionID := session.SessionID("session1")
@@ -49,7 +42,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
+
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -61,13 +54,10 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-1", file)
@@ -88,17 +78,7 @@ func TestLoad_InvalidYAML_ReturnsError(t *testing.T) {
     ports: [
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewEmptyDockerProvider()
-	networkManager := networktest.NewStubManager()
-
-	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
-	)
+	app := NewApplication()
 
 	sessionID, err := app.Load(context.Background(), file)
 
@@ -117,15 +97,22 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewEmptyDockerProvider()
-	networkManager := networktest.NewStubManager()
+
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1234567890",
+				"chaosd-web-1",
+				"project-load-1",
+				"web",
+				"chaosd:192.168.10.2",
+			),
+		),
+	)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithSessionStore(sessionStore),
 	)
 
 	sessionID, err := app.Load(context.Background(), file)
@@ -149,16 +136,23 @@ services:
     image: nginx
 `)
 
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-restart-1",
+				"web",
+				"chaosd:198.162.10.1",
+			),
+		),
+	)
+
 	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewEmptyDockerProvider()
-	networkManager := networktest.NewStubManager()
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-restart-1", file)
@@ -179,8 +173,6 @@ services:
     image: nginx
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -192,13 +184,13 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-restart-1", file)
@@ -223,8 +215,6 @@ services:
     image: postgres
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -243,13 +233,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networktest.NewStubManager()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-network-1", file)
@@ -268,8 +259,6 @@ services:
     image: postgres
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -288,13 +277,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networktest.NewStubManager()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-network-1", file)
@@ -315,8 +305,6 @@ services:
     image: postgres
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -335,13 +323,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networktest.NewStubManager()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-network-1", file)
@@ -393,8 +382,6 @@ services:
     image: postgres
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -413,13 +400,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networktest.NewStubManager()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-network-1", file)
@@ -427,7 +415,7 @@ services:
 	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	events, err := app.events.List(session.ID)
+	events, err := app.EventStore.List(session.ID)
 	assert.NoError(t, err)
 
 	assert.Len(t, events, 1)
@@ -450,8 +438,6 @@ services:
     image: postgres
 `)
 
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -470,13 +456,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networktest.NewStubManager()),
+		WithSessionStore(sessionStore),
 	)
 
 	session, _ := sessionStore.Create("project-network-1", file)
@@ -487,7 +474,7 @@ services:
 	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	events, err := app.events.List(session.ID)
+	events, err := app.EventStore.List(session.ID)
 	assert.NoError(t, err)
 
 	assert.Len(t, events, 2)
@@ -511,7 +498,7 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
+
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -530,16 +517,14 @@ services:
 			),
 		),
 	)
-	networkManager := networktest.NewStubManager()
-
-	session, _ := sessionStore.Create("project-network-1", file)
 
 	app := NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithSessionStore(sessionStore),
 	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
 
 	results, err := app.RestartService(context.Background(), session.ID, "web")
 
@@ -547,7 +532,7 @@ services:
 
 	assert.Len(t, results, 1)
 
-	events, err := app.events.List(session.ID)
+	events, err := app.EventStore.List(session.ID)
 	assert.NoError(t, err)
 
 	assert.Len(t, events, 1)

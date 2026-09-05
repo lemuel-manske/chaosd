@@ -80,8 +80,7 @@ func TestManager_PartitionAndHeal_IsBidirectional(t *testing.T) {
 
 services:
   node-a:
-    image: curlimages/curl
-    command: ["sleep", "infinity"]
+    image: wbitt/network-multitool
   node-b:
     image: nginx:alpine
 `)

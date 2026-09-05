@@ -48,13 +48,13 @@ func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string
 	networkManager := networktest.NewRealManager()
 
 	app := application.NewApplication(
-		sessionStore,
-		eventStore,
-		dockerProvider,
-		networkManager,
+		application.WithSessionStore(sessionStore),
+		application.WithEventStore(eventStore),
+		application.WithDockerProvider(dockerProvider),
+		application.WithNetworkManager(networkManager),
 	)
 
-	cmd := NewLoadCmd(*app)
+	cmd := NewLoadCmd(app)
 
 	return clitest.ExecuteCommand(t, cmd, composeFile)
 }
