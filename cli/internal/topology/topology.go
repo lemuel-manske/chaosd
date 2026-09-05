@@ -12,6 +12,10 @@ import (
 	"github.com/moby/moby/client"
 )
 
+const (
+	missingState = "missing"
+)
+
 type NetworkNode struct {
 	Node    Node
 	Address string
@@ -214,11 +218,9 @@ func (t *Topology) SharedNetworkEndpoints(nodeA string, nodeB string) []NetworkP
 }
 
 func (t *Topology) Print(stdout io.Writer) {
-	reportFormat := "%-20s %-30s %-10s\n"
-	missingState := "missing"
+	reportFormat := "%-15s %-20s %-10s\n"
 
-	fmt.Fprintf(stdout, reportFormat, "Service", "Container Name", "State")
-	fmt.Fprintf(stdout, reportFormat, "-------", "--------------", "-----")
+	fmt.Fprintf(stdout, reportFormat, "SERVICE", "CONTAINER", "STATE")
 
 	for _, node := range t.Nodes {
 		fmt.Fprintf(stdout, reportFormat, node.Service, node.ContainerName, node.State)
