@@ -1,7 +1,8 @@
-package partition
+package delay
 
 import (
 	"fmt"
+	"time"
 
 	"chaosd/cli/application"
 	"chaosd/cli/internal/session"
@@ -9,18 +10,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewHealCmd(
+func NewDelayCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "heal",
+		Use: "delay",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 
 			nodeAName := args[1]
 			nodeBName := args[2]
 
-			err := app.Heal(cmd.Context(), sessionID, nodeAName, nodeBName) // TODO: heal by fault ID
+			delay, err := time.ParseDuration(args[3])
+
+			if err != nil {
+				return fmt.Errorf("invalid delay duration: %v", err)
+			}
+
+			err = app.Delay(cmd.Context(), sessionID, nodeAName, nodeBName, delay)
 
 			if err != nil {
 				return err
@@ -28,13 +35,13 @@ func NewHealCmd(
 
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"%s and %s healed\n",
+				"%s and %s delayed\n",
 				nodeAName,
 				nodeBName,
 			)
 
 			return nil
 		},
-		Args: cobra.ExactArgs(3),
+		Args: cobra.ExactArgs(4),
 	}
 }

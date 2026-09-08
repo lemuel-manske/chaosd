@@ -299,6 +299,9 @@ func (app *Application) Heal(
 		return newDockerClientError(err)
 	}
 
+	// TODO: do not recalculate IPs
+	// is the containers are recreated, the IPs will change, and the partition will not be healed correctly
+
 	t, err := topology.Load(composeFile, ctx, cli)
 
 	if err != nil {
@@ -343,6 +346,74 @@ func (app *Application) Heal(
 		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.HealAppliedEventData{
+			NodeAName: nodeAName,
+			NodeBName: nodeBName,
+		},
+	})
+
+	return nil
+}
+
+func (app *Application) Delay(
+	ctx context.Context,
+	sessionID session.SessionID,
+	nodeAName string,
+	nodeBName string,
+	delay time.Duration,
+) error {
+	_session, err := app.SessionStore.Get(sessionID)
+
+	if err != nil {
+		return err
+	}
+
+	composeFile, err := docker.Parse(_session.ComposeFile)
+
+	if err != nil {
+		return err
+	}
+
+	cli, err := app.DockerProvider.NewClient()
+
+	if err != nil {
+		return newDockerClientError(err)
+	}
+
+	t, err := topology.Load(composeFile, ctx, cli)
+
+	if err != nil {
+		return err
+	}
+
+	nodeA, err := getRunningNode(t, nodeAName)
+
+	if err != nil {
+		return err
+	}
+
+	nodeB, err := getRunningNode(t, nodeBName)
+
+	if err != nil {
+		return err
+	}
+
+	faultID, err := app.SessionStore.AddDelayFault(sessionID, nodeAName, nodeBName, delay)
+
+	if err != nil {
+		return err
+	}
+
+	err = app.NetworkManager.Delay(ctx, *nodeA, *nodeB, string(faultID), delay)
+
+	if err != nil {
+		return err
+	}
+
+	app.EventStore.Append(sessionID, event.Event{
+		Type:      event.DelayAppliedEvent,
+		CreatedAt: time.Now(),
+		Data: event.DelayAppliedEventData{
+			Delay:     delay,
 			NodeAName: nodeAName,
 			NodeBName: nodeBName,
 		},

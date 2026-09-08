@@ -1,15 +1,12 @@
 package network
 
 import (
-	"chaosd/cli/internal/topology"
 	"context"
 	"fmt"
 	"os/exec"
-)
 
-type RuleMetadata struct {
-	FaultID string
-}
+	"chaosd/cli/internal/topology"
+)
 
 type PartitionRequest struct {
 	Links    []Link
@@ -31,43 +28,12 @@ func NewPartitionRequest(
 	}
 }
 
-type HealRequest struct {
-	Links    []Link
-	Metadata RuleMetadata
-}
-
-func NewHealRequest(
-	nodeA topology.Node,
-	nodeB topology.Node,
-	faultID string,
-) HealRequest {
-	links := LinksBetween(nodeA, nodeB)
-
-	return HealRequest{
-		Links: links,
-		Metadata: RuleMetadata{
-			FaultID: faultID,
-		},
-	}
-}
-
-type ActionResult struct {
-	Link Link
-	Err  error
-}
-
-type Injector interface {
+type Partitioner interface {
 	Partition(ctx context.Context, request PartitionRequest) []ActionResult
 	Heal(ctx context.Context, request HealRequest) []ActionResult
 }
 
 type LinuxFirewallInjector struct{}
-
-type Link struct {
-	NetworkName string
-	SourceIP    string
-	TargetIP    string
-}
 
 func NewLinuxFirewallInjector() *LinuxFirewallInjector {
 	return &LinuxFirewallInjector{}
@@ -230,22 +196,4 @@ func (i *LinuxFirewallInjector) ensureJump() error {
 	}
 
 	return nil
-}
-
-func LinksBetween(a, b topology.Node) []Link {
-	var links []Link
-
-	for _, netA := range a.Networks {
-		for _, netB := range b.Networks {
-			if netA.NetworkName == netB.NetworkName {
-				links = append(links, Link{
-					NetworkName: netA.NetworkName,
-					SourceIP:    netA.IPAddress,
-					TargetIP:    netB.IPAddress,
-				})
-			}
-		}
-	}
-
-	return links
 }

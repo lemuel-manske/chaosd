@@ -51,7 +51,7 @@ services:
 		"http://node-b",
 	)
 
-	manager := network.NewManager(network.NewLinuxFirewallInjector())
+	manager := network.NewManager(network.NewLinuxFirewallInjector(), network.NewNetemInjector())
 	faultID := "test-fault-id"
 
 	err = manager.Partition(ctx, nodeA, nodeB, faultID)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"chaosd/cli/internal/storage"
 
@@ -84,6 +85,7 @@ func (s *Session) GetFault(nodeAName string, nodeBName string) *Fault {
 
 // SessionStore is responsible for managing sessions and their subordinates.
 type SessionStore interface {
+	AddDelayFault(sessionID SessionID, nodeAName string, nodeBName string, delay time.Duration) (FaultID, error)
 	AddPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) (FaultID, error)
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
 	Delete(id SessionID) error
@@ -100,6 +102,46 @@ func NewFileSessionStore(dir string) SessionStore {
 	writer := storage.NewAtomicFileWriter()
 
 	return &FileSessionStore{dir: dir, writer: writer}
+}
+
+func (s *FileSessionStore) AddPartitionFault(
+	sessionID SessionID,
+	nodeAName string,
+	nodeBName string,
+) (FaultID, error) {
+	session, err := s.Get(sessionID)
+
+	if err != nil {
+		return "", err
+	}
+
+	fault := Fault{
+		ID:     NewFaultID(),
+		Type:   partitionFaultType,
+		NodeA:  nodeAName,
+		NodeB:  nodeBName,
+		Status: activeStatus,
+	}
+
+	session.Faults = append(session.Faults, fault)
+
+	path, err := s.createPathToSession(sessionID)
+
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.MarshalIndent(session, "", "  ")
+
+	if err != nil {
+		return "", fmt.Errorf("encode session: %w", err)
+	}
+
+	if err := s.writer.Write(path, data, 0600); err != nil {
+		return "", fmt.Errorf("write session: %w", err)
+	}
+
+	return fault.ID, nil
 }
 
 func (s *FileSessionStore) HealPartitionFault(
@@ -141,10 +183,11 @@ func (s *FileSessionStore) HealPartitionFault(
 	return nil
 }
 
-func (s *FileSessionStore) AddPartitionFault(
+func (s *FileSessionStore) AddDelayFault(
 	sessionID SessionID,
 	nodeAName string,
 	nodeBName string,
+	delay time.Duration,
 ) (FaultID, error) {
 	session, err := s.Get(sessionID)
 
@@ -154,7 +197,7 @@ func (s *FileSessionStore) AddPartitionFault(
 
 	fault := Fault{
 		ID:     NewFaultID(),
-		Type:   partitionFaultType,
+		Type:   "delay",
 		NodeA:  nodeAName,
 		NodeB:  nodeBName,
 		Status: activeStatus,

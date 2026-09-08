@@ -16,6 +16,7 @@ type EventType string
 const (
 	PartitionAppliedEvent EventType = "partition"
 	HealAppliedEvent      EventType = "heal"
+	DelayAppliedEvent     EventType = "delay"
 
 	RestartEvent EventType = "restart"
 )
@@ -26,6 +27,12 @@ type PartitionAppliedEventData struct {
 }
 
 type HealAppliedEventData struct {
+	NodeAName string
+	NodeBName string
+}
+
+type DelayAppliedEventData struct {
+	Delay     time.Duration
 	NodeAName string
 	NodeBName string
 }
@@ -70,6 +77,12 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 		e.Data = d
 	case RestartEvent:
 		var d RestartEventData
+		if err := json.Unmarshal(aux.Data, &d); err != nil {
+			return err
+		}
+		e.Data = d
+	case DelayAppliedEvent:
+		var d DelayAppliedEventData
 		if err := json.Unmarshal(aux.Data, &d); err != nil {
 			return err
 		}

@@ -6,25 +6,33 @@ import (
 	"chaosd/cli/internal/network"
 )
 
-type StubInjector struct{}
+type StubPartitioner struct{}
+
+type StubDelayer struct{}
 
 func NewRealManager() network.Manager {
 	return network.NewManager(
 		network.NewLinuxFirewallInjector(),
+		network.NewNetemInjector(),
 	)
 }
 
 func NewStubManager() network.Manager {
 	return network.NewManager(
-		NewStubInjector(),
+		NewStubPartitioner(),
+		NewStubDelayer(),
 	)
 }
 
-func NewStubInjector() *StubInjector {
-	return &StubInjector{}
+func NewStubPartitioner() *StubPartitioner {
+	return &StubPartitioner{}
 }
 
-func (i *StubInjector) Partition(
+func NewStubDelayer() *StubDelayer {
+	return &StubDelayer{}
+}
+
+func (i *StubPartitioner) Partition(
 	ctx context.Context,
 	request network.PartitionRequest,
 ) []network.ActionResult {
@@ -32,15 +40,15 @@ func (i *StubInjector) Partition(
 
 	for _, l := range request.Links {
 		results = append(results, network.ActionResult{
-			Link:   l,
-			Err: nil,
+			Link: l,
+			Err:  nil,
 		})
 	}
 
 	return results
 }
 
-func (i *StubInjector) Heal(
+func (i *StubPartitioner) Heal(
 	ctx context.Context,
 	request network.HealRequest,
 ) []network.ActionResult {
@@ -48,8 +56,40 @@ func (i *StubInjector) Heal(
 
 	for _, l := range request.Links {
 		results = append(results, network.ActionResult{
-			Link:   l,
-			Err: nil,
+			Link: l,
+			Err:  nil,
+		})
+	}
+
+	return results
+}
+
+func (i *StubDelayer) Delay(
+	ctx context.Context,
+	request network.DelayRequest,
+) []network.ActionResult {
+	results := make([]network.ActionResult, 0)
+
+	for _, l := range request.Links {
+		results = append(results, network.ActionResult{
+			Link: l,
+			Err:  nil,
+		})
+	}
+
+	return results
+}
+
+func (i *StubDelayer) Heal(
+	ctx context.Context,
+	request network.HealRequest,
+) []network.ActionResult {
+	results := make([]network.ActionResult, 0)
+
+	for _, l := range request.Links {
+		results = append(results, network.ActionResult{
+			Link: l,
+			Err:  nil,
 		})
 	}
 

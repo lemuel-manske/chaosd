@@ -1,8 +1,6 @@
-package partition
+package delay
 
 import (
-	"fmt"
-
 	"chaosd/cli/application"
 	"chaosd/cli/internal/session"
 
@@ -26,12 +24,7 @@ func NewHealCmd(
 				return err
 			}
 
-			fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"%s and %s healed\n",
-				nodeAName,
-				nodeBName,
-			)
+			cmd.Printf("%s and %s healed\n", nodeAName, nodeBName)
 
 			return nil
 		},

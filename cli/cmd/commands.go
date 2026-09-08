@@ -38,6 +38,7 @@ func Init(rootCmd *cobra.Command) {
 
 	networkManager := network.NewManager(
 		network.NewLinuxFirewallInjector(),
+		network.NewNetemInjector(),
 	)
 
 	app := application.NewApplication(

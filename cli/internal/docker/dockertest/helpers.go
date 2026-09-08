@@ -1,16 +1,20 @@
 package dockertest
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net/netip"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"chaosd/cli/internal/docker"
 
 	"chaosd/cli/clitest"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
@@ -275,4 +279,53 @@ func InspectContainer(t *testing.T, containerID string) client.ContainerInspectR
 	require.NoError(t, err)
 
 	return containerJSON
+}
+
+func MeasureRequestDuration(
+	t *testing.T,
+	projectName string,
+	serviceName string,
+	target string,
+) (time.Duration, error) {
+	t.Helper()
+
+	ctr := ContainerByServiceName(t, projectName, serviceName)
+
+	start := time.Now()
+
+	exitCode, output, err := ctr.Exec(
+		context.Background(),
+		[]string{
+			"curl",
+			"--silent",
+			"--show-error",
+			"--fail",
+			"--output",
+			"/dev/null",
+			"--max-time",
+			"10",
+			target,
+		},
+	)
+
+	duration := time.Since(start)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	_, readErr := stdcopy.StdCopy(&stdout, &stderr, output)
+	if readErr != nil {
+		return duration, fmt.Errorf("failed to read curl output: %w", readErr)
+	}
+
+	if err != nil || exitCode != 0 {
+		return duration, fmt.Errorf(
+			"curl failed: %w, exit code: %d, stderr: %s",
+			err,
+			exitCode,
+			stderr.String(),
+		)
+	}
+
+	return duration, nil
 }
