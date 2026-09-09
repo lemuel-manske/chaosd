@@ -6,12 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"chaosd/cli/application"
-
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
 	"chaosd/cli/internal/event/eventtest"
-	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"chaosd/cli/internal/session"
@@ -27,8 +24,9 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
-	output, err := runLoad(t, sessionStore, app.ComposeFile)
+	output, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
 	sessionID := strings.TrimSpace(output)
@@ -38,23 +36,4 @@ services:
 
 	assert.Equal(t, `project-load-1`, s.Project)
 	assert.Equal(t, app.ComposeFile, s.ComposeFile)
-}
-
-func runLoad(t *testing.T, sessionStore session.SessionStore, composeFile string) (string, error) {
-	t.Helper()
-
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewLoadCmd(app)
-
-	return clitest.ExecuteCommand(t, cmd, composeFile)
 }

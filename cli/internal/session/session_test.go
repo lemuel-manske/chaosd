@@ -3,14 +3,14 @@ package session_test
 import (
 	"testing"
 
-	"chaosd/cli/clitest"
 	"chaosd/cli/internal/session/sessiontest"
+	"chaosd/cli/test"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSessionIsPersisted(t *testing.T) {
-	f := clitest.File(t, `name: project`)
+	f := test.File(t, `name: project`)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 
@@ -22,7 +22,7 @@ func TestSessionIsPersisted(t *testing.T) {
 }
 
 func TestGetSession(t *testing.T) {
-	f := clitest.File(t, `name: project`)
+	f := test.File(t, `name: project`)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 
@@ -48,7 +48,7 @@ func TestGetSessionNotFound(t *testing.T) {
 }
 
 func TestDeleteSession(t *testing.T) {
-	f := clitest.File(t, `name: project`)
+	f := test.File(t, `name: project`)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 

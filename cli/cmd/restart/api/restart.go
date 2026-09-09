@@ -1,4 +1,4 @@
-package restart
+package api
 
 import (
 	"fmt"

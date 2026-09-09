@@ -1,4 +1,5 @@
-package clitest
+// Package test package provides helper functions for testing.
+package test
 
 import (
 	"strings"

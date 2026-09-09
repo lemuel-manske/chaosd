@@ -5,12 +5,10 @@ package restart
 import (
 	"testing"
 
-	"chaosd/cli/application"
-
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
 	"chaosd/cli/internal/event/eventtest"
-	"chaosd/cli/internal/network/networktest"
+	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +23,15 @@ services:
     image: nginx:alpine
 `)
 
-	output, err := runRestart(t, app.ComposeFile, "nonexistent-service")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
+	assert.NoError(t, err)
+
+	sessionID := session.ParseSessionID(loadOutput)
+
+	output, err := clitest.RunRestart(t, sessionStore, eventStore, sessionID, "nonexistent-service")
 	require.Error(t, err)
 
 	assert.Contains(t, output, "service nonexistent-service not found in project project-restart-1")
@@ -39,8 +45,16 @@ services:
     image: nginx:alpine
 `)
 
-	output, err := runRestart(t, app.ComposeFile, "web")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
+
+	sessionID := session.ParseSessionID(loadOutput)
+
+	output, err := clitest.RunRestart(t, sessionStore, eventStore, sessionID, "web")
+	require.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
 }
@@ -55,8 +69,16 @@ services:
       replicas: 3
 `)
 
-	output, err := runRestart(t, app.ComposeFile, "web")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
+
+	sessionID := session.ParseSessionID(loadOutput)
+
+	output, err := clitest.RunRestart(t, sessionStore, eventStore, sessionID, "web")
+	require.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
 	assert.Contains(t, output, "project-restart-1-web-2")
@@ -77,8 +99,16 @@ services:
 	beforeInspect :=
 		dockertest.InspectContainer(t, containerBeforeRestart.GetContainerID())
 
-	output, err := runRestart(t, app.ComposeFile, "web")
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
+
+	sessionID := session.ParseSessionID(loadOutput)
+
+	output, err := clitest.RunRestart(t, sessionStore, eventStore, sessionID, "web")
+	require.NoError(t, err)
 
 	assert.Contains(t, output, "project-restart-1-web-1")
 
@@ -95,29 +125,4 @@ services:
 	assert.NotEqual(
 		t, beforeInspect.Container.State.StartedAt, afterInspect.Container.State.StartedAt,
 	)
-}
-
-func runRestart(t *testing.T, composeFile string, serviceName string) (string, error) {
-	t.Helper()
-
-	sessionStore := sessiontest.NewTmpSessionStore(t)
-	eventStore := eventtest.NewTmpEventStore(t)
-
-	createdSession, err := sessionStore.Create("project", composeFile)
-
-	assert.NoError(t, err)
-
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewRestartCmd(app)
-
-	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID), serviceName)
 }

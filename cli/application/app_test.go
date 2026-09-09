@@ -7,8 +7,8 @@ import (
 	"chaosd/cli/internal/event"
 	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
+	"chaosd/cli/test"
 
-	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
@@ -35,7 +35,7 @@ func TestGetTopology_NonexistentSession_ReturnsError(t *testing.T) {
 }
 
 func TestGetTopology_RunningContainer_ReturnsTopology(t *testing.T) {
-	file := clitest.File(t, `name: project-1
+	file := test.File(t, `name: project-1
 services:
   web:
     image: nginx
@@ -73,7 +73,7 @@ services:
 }
 
 func TestLoad_InvalidYAML_ReturnsError(t *testing.T) {
-	file := clitest.File(t, `services:
+	file := test.File(t, `services:
   web:
     ports: [
 `)
@@ -90,7 +90,7 @@ func TestLoad_InvalidYAML_ReturnsError(t *testing.T) {
 }
 
 func TestLoad_ValidComposeFile_CreatesSession(t *testing.T) {
-	file := clitest.File(t, `name: project-load-1
+	file := test.File(t, `name: project-load-1
 services:
   web:
     image: nginx
@@ -130,7 +130,7 @@ services:
 }
 
 func TestRestartService_UnknownService_ReturnsError(t *testing.T) {
-	file := clitest.File(t, `name: project-restart-1
+	file := test.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
@@ -167,7 +167,7 @@ services:
 }
 
 func TestRestartService_RunningContainers_ReturnsResults(t *testing.T) {
-	file := clitest.File(t, `name: project-restart-1
+	file := test.File(t, `name: project-restart-1
 services:
   web:
     image: nginx
@@ -207,7 +207,7 @@ services:
 }
 
 func TestPartition_RunningNodes_PartitionsNodes(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx
@@ -245,13 +245,13 @@ services:
 
 	session, _ := sessionStore.Create("project-network-1", file)
 
-	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	_, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 
 	assert.NoError(t, err)
 }
 
 func TestHeal_RunningNodes_HealsNodes(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx
@@ -289,15 +289,15 @@ services:
 
 	session, _ := sessionStore.Create("project-network-1", file)
 
-	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	faultID, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	err = app.Heal(context.Background(), session.ID, faultID)
 	assert.NoError(t, err)
 }
 
 func TestParition_IsBidirectional(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx
@@ -335,10 +335,10 @@ services:
 
 	session, _ := sessionStore.Create("project-network-1", file)
 
-	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	faultID, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	err = app.Heal(context.Background(), session.ID, "chaosd-db-1", "chaosd-web-1")
+	err = app.Heal(context.Background(), session.ID, faultID)
 	assert.NoError(t, err)
 }
 
@@ -374,7 +374,7 @@ func TestGetRunningNode_StoppedNode_ReturnsError(t *testing.T) {
 }
 
 func TestPartition_RunningNodes_KeepsEvent(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx
@@ -412,7 +412,7 @@ services:
 
 	session, _ := sessionStore.Create("project-network-1", file)
 
-	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	_, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
 	events, err := app.EventStore.List(session.ID)
@@ -430,7 +430,7 @@ services:
 }
 
 func TestHeal_RunningNodes_KeepsEvent(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx
@@ -468,10 +468,10 @@ services:
 
 	session, _ := sessionStore.Create("project-network-1", file)
 
-	err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	faultID, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
 	assert.NoError(t, err)
 
-	err = app.Heal(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+	err = app.Heal(context.Background(), session.ID, faultID)
 	assert.NoError(t, err)
 
 	events, err := app.EventStore.List(session.ID)
@@ -489,7 +489,7 @@ services:
 }
 
 func TestRestartService_RunningContainers_KeepsEvent(t *testing.T) {
-	file := clitest.File(t, `name: project-network-1
+	file := test.File(t, `name: project-network-1
 services:
   web:
     image: nginx

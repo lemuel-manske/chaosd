@@ -1,30 +1,36 @@
-package delay
+package api
 
 import (
+	"fmt"
+
 	"chaosd/cli/application"
 	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
 )
 
-func NewHealCmd(
+func NewPartitionCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "heal",
+		Use: "partition",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 
 			nodeAName := args[1]
 			nodeBName := args[2]
 
-			err := app.Heal(cmd.Context(), sessionID, nodeAName, nodeBName) // TODO: heal by fault ID
+			faultID, err := app.Partition(cmd.Context(), sessionID, nodeAName, nodeBName)
 
 			if err != nil {
 				return err
 			}
 
-			cmd.Printf("%s and %s healed\n", nodeAName, nodeBName)
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"%s\n",
+				faultID,
+			)
 
 			return nil
 		},

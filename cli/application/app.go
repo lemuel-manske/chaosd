@@ -214,53 +214,53 @@ func (app *Application) Partition(
 	sessionID session.SessionID,
 	nodeAName string,
 	nodeBName string,
-) error {
+) (session.FaultID, error) {
 	_session, err := app.SessionStore.Get(sessionID)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	composeFile, err := docker.Parse(_session.ComposeFile)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cli, err := app.DockerProvider.NewClient()
 
 	if err != nil {
-		return newDockerClientError(err)
+		return "", newDockerClientError(err)
 	}
 
 	t, err := topology.Load(composeFile, ctx, cli)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	nodeA, err := getRunningNode(t, nodeAName)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	nodeB, err := getRunningNode(t, nodeBName)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	faultID, err := app.SessionStore.AddPartitionFault(sessionID, nodeAName, nodeBName)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = app.NetworkManager.Partition(ctx, *nodeA, *nodeB, string(faultID))
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	app.EventStore.Append(sessionID, event.Event{
@@ -272,14 +272,13 @@ func (app *Application) Partition(
 		},
 	})
 
-	return nil
+	return faultID, nil
 }
 
 func (app *Application) Heal(
 	ctx context.Context,
 	sessionID session.SessionID,
-	nodeAName string,
-	nodeBName string,
+	faultID session.FaultID,
 ) error {
 	_session, err := app.SessionStore.Get(sessionID)
 
@@ -299,35 +298,35 @@ func (app *Application) Heal(
 		return newDockerClientError(err)
 	}
 
-	// TODO: do not recalculate IPs
-	// is the containers are recreated, the IPs will change, and the partition will not be healed correctly
-
 	t, err := topology.Load(composeFile, ctx, cli)
 
 	if err != nil {
 		return err
 	}
 
-	nodeA, err := getRunningNode(t, nodeAName)
-
-	if err != nil {
-		return err
-	}
-
-	nodeB, err := getRunningNode(t, nodeBName)
-
-	if err != nil {
-		return err
-	}
-
-	fault := _session.GetFault(nodeAName, nodeBName)
+	fault := _session.GetFault(faultID)
 
 	if fault == nil {
-		return fmt.Errorf("no partition fault found between %s and %s", nodeAName, nodeBName)
+		return fmt.Errorf("fault %s not found", faultID)
+	}
+
+	// TODO: do not recalculate IPs
+	// is the containers are recreated, the IPs will change, and the partition will not be healed correctly
+
+	nodeA, err := getRunningNode(t, fault.NodeA)
+
+	if err != nil {
+		return err
+	}
+
+	nodeB, err := getRunningNode(t, fault.NodeB)
+
+	if err != nil {
+		return err
 	}
 
 	if fault.IsHealed() {
-		return fmt.Errorf("partition fault between %s and %s is already healed", nodeAName, nodeBName)
+		return fmt.Errorf("fault %s is already healed", faultID)
 	}
 
 	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB, string(fault.ID))
@@ -336,7 +335,7 @@ func (app *Application) Heal(
 		return err
 	}
 
-	err = app.SessionStore.HealPartitionFault(sessionID, nodeAName, nodeBName)
+	err = app.SessionStore.HealFault(sessionID, faultID)
 
 	if err != nil {
 		return err
@@ -346,8 +345,8 @@ func (app *Application) Heal(
 		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.HealAppliedEventData{
-			NodeAName: nodeAName,
-			NodeBName: nodeBName,
+			NodeAName: nodeA.ContainerName,
+			NodeBName: nodeB.ContainerName,
 		},
 	})
 

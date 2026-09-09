@@ -1,3 +1,4 @@
+// Package cmd provides the command line interface for chaosd.
 package cmd
 
 import (
@@ -6,13 +7,15 @@ import (
 
 	"chaosd/cli/adapters"
 	"chaosd/cli/application"
-	"chaosd/cli/cmd/events"
-	"chaosd/cli/cmd/load"
-	"chaosd/cli/cmd/partition"
-	"chaosd/cli/cmd/ps"
-	"chaosd/cli/cmd/restart"
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/network"
+
+	events_api "chaosd/cli/cmd/events/api"
+	heal_api "chaosd/cli/cmd/heal/api"
+	load_api "chaosd/cli/cmd/load/api"
+	partition_api "chaosd/cli/cmd/partition/api"
+	ps_api "chaosd/cli/cmd/ps/api"
+	restart_api "chaosd/cli/cmd/restart/api"
 
 	"github.com/spf13/cobra"
 )
@@ -48,12 +51,12 @@ func Init(rootCmd *cobra.Command) {
 		application.WithNetworkManager(networkManager),
 	)
 
-	rootCmd.AddCommand(events.NewEventsCmd(app))
-	rootCmd.AddCommand(load.NewLoadCmd(app))
-	rootCmd.AddCommand(partition.NewHealCmd(app))
-	rootCmd.AddCommand(partition.NewPartitionCmd(app))
-	rootCmd.AddCommand(ps.NewPsCmd(app))
-	rootCmd.AddCommand(restart.NewRestartCmd(app))
+	rootCmd.AddCommand(events_api.NewEventsCmd(app))
+	rootCmd.AddCommand(load_api.NewLoadCmd(app))
+	rootCmd.AddCommand(heal_api.NewHealCmd(app))
+	rootCmd.AddCommand(partition_api.NewPartitionCmd(app))
+	rootCmd.AddCommand(ps_api.NewPsCmd(app))
+	rootCmd.AddCommand(restart_api.NewRestartCmd(app))
 }
 
 func Execute(rootCmd *cobra.Command) {

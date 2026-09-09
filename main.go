@@ -2,11 +2,12 @@ package main
 
 import (
 	"chaosd/cli/cmd"
-	"chaosd/cli/cmd/root"
+
+	root_api "chaosd/cli/cmd/root/api"
 )
 
 func main() {
-	rootCmd := root.NewRootCmd()
+	rootCmd := root_api.NewRootCmd()
 
 	cmd.Init(rootCmd)
 	cmd.Execute(rootCmd)

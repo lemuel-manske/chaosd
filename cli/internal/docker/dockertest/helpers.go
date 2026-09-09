@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"chaosd/cli/internal/docker"
-
-	"chaosd/cli/clitest"
+	"chaosd/cli/test"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
@@ -177,7 +176,7 @@ type ComposeApp struct {
 func writeComposeFile(t *testing.T, composeYAML string) string {
 	t.Helper()
 
-	file := clitest.File(t, composeYAML)
+	file := test.File(t, composeYAML)
 
 	return file
 }

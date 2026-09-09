@@ -5,13 +5,11 @@ package partition
 import (
 	"testing"
 
-	"chaosd/cli/application"
+	"chaosd/cli/clitest"
 	"chaosd/cli/internal/event/eventtest"
 	"chaosd/cli/internal/session"
 
-	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
-	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
@@ -30,8 +28,9 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
-	session, _ := sessionStore.Create("project-partition-1", app.ComposeFile)
+	_session, _ := sessionStore.Create("project-partition-1", app.ComposeFile)
 
 	dockertest.AssertCanReach(
 		t,
@@ -40,16 +39,17 @@ services:
 		"http://node-b",
 	)
 
-	output, err := runPartition(
+	output, err := clitest.RunPartition(
 		t,
 		sessionStore,
-		session.ID,
+		eventStore,
+		_session.ID,
 		"project-partition-1-node-a-1",
 		"project-partition-1-node-b-1",
 	)
 	assert.NoError(t, err)
 
-	assert.Contains(t, output, "partitioned")
+	faultID := session.ParseFaultID(output)
 
 	dockertest.AssertCannotReach(
 		t,
@@ -58,12 +58,12 @@ services:
 		"http://node-b",
 	)
 
-	output, err = runHeal(
+	output, err = clitest.RunHeal(
 		t,
 		sessionStore,
-		session.ID,
-		"project-partition-1-node-a-1",
-		"project-partition-1-node-b-1",
+		eventStore,
+		_session.ID,
+		faultID,
 	)
 	assert.NoError(t, err)
 
@@ -88,8 +88,9 @@ services:
 `)
 
 	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
 
-	session, _ := sessionStore.Create("project-partition-2", app.ComposeFile)
+	_session, _ := sessionStore.Create("project-partition-2", app.ComposeFile)
 
 	dockertest.AssertCanReach(
 		t,
@@ -98,16 +99,17 @@ services:
 		"http://node-b",
 	)
 
-	output, err := runPartition(
+	output, err := clitest.RunPartition(
 		t,
 		sessionStore,
-		session.ID,
+		eventStore,
+		_session.ID,
 		"project-partition-2-node-a-1",
 		"project-partition-2-node-b-1",
 	)
 	assert.NoError(t, err)
 
-	assert.Contains(t, output, "partitioned")
+	faultID := session.ParseFaultID(output)
 
 	dockertest.AssertCannotReach(
 		t,
@@ -123,78 +125,16 @@ services:
 		"http://node-a",
 	)
 
-	output, err = runHeal(
+	output, err = clitest.RunHeal(
 		t,
 		sessionStore,
-		session.ID,
-		"project-partition-2-node-a-1",
-		"project-partition-2-node-b-1",
+		eventStore,
+		_session.ID,
+		faultID,
 	)
 	assert.NoError(t, err)
 	assert.Contains(t, output, "healed")
 
 	dockertest.AssertCanReach(t, "project-partition-2", "node-a", "http://node-b")
 	dockertest.AssertCanReach(t, "project-partition-2", "node-b", "http://node-a")
-}
-
-func runPartition(
-	t *testing.T,
-	sessionStore session.SessionStore,
-	sessionID session.SessionID,
-	nodeA string,
-	nodeB string,
-) (string, error) {
-	t.Helper()
-
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewPartitionCmd(app)
-
-	return clitest.ExecuteCommand(
-		t,
-		cmd,
-		string(sessionID),
-		nodeA,
-		nodeB,
-	)
-}
-
-func runHeal(
-	t *testing.T,
-	sessionStore session.SessionStore,
-	sessionID session.SessionID,
-	nodeA string,
-	nodeB string,
-) (string, error) {
-	t.Helper()
-
-	eventStore := eventtest.NewTmpEventStore(t)
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewHealCmd(app)
-
-	return clitest.ExecuteCommand(
-		t,
-		cmd,
-		string(sessionID),
-		nodeA,
-		nodeB,
-	)
 }

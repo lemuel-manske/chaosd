@@ -3,14 +3,9 @@
 package delay
 
 import (
-	"strings"
 	"testing"
 	"time"
 
-	"chaosd/cli/application"
-	"chaosd/cli/cmd/load"
-	"chaosd/cli/internal/event"
-	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session"
 
 	"chaosd/cli/clitest"
@@ -33,17 +28,17 @@ services:
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 	eventStore := eventtest.NewTmpEventStore(t)
 
-	loadOutput, err := runLoad(t, sessionStore, eventStore, app.ComposeFile)
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	sessionID := strings.TrimSpace(loadOutput)
+	sessionID := session.ParseSessionID(loadOutput)
 
 	delayDuration := 500 * time.Millisecond
 
 	before, err := dockertest.MeasureRequestDuration(t, "project-delay-1", "web-1", "http://web-2")
 	assert.NoError(t, err)
 
-	_, err = runDelay(
+	_, err = clitest.RunDelay(
 		t,
 		sessionStore,
 		eventStore,
@@ -76,17 +71,17 @@ services:
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 	eventStore := eventtest.NewTmpEventStore(t)
 
-	loadOutput, err := runLoad(t, sessionStore, eventStore, app.ComposeFile)
+	loadOutput, err := clitest.RunLoad(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	sessionID := strings.TrimSpace(loadOutput)
+	sessionID := session.ParseSessionID(loadOutput)
 
 	delayDuration := 500 * time.Millisecond
 
 	before, err := dockertest.MeasureRequestDuration(t, "project-delay-2", "web-1", "http://web-2")
 	assert.NoError(t, err)
 
-	_, err = runDelay(
+	delayOutput, err := clitest.RunDelay(
 		t,
 		sessionStore,
 		eventStore,
@@ -97,6 +92,8 @@ services:
 	)
 	assert.NoError(t, err)
 
+	faultID := session.ParseFaultID(delayOutput)
+
 	after, err := dockertest.MeasureRequestDuration(t, "project-delay-2", "web-1", "http://web-2")
 	assert.NoError(t, err)
 
@@ -106,13 +103,12 @@ services:
 		450*time.Millisecond,
 	)
 
-	_, err = runHeal(
+	_, err = clitest.RunHeal(
 		t,
 		sessionStore,
 		eventStore,
 		sessionID,
-		"project-delay-2-web-1-1",
-		"project-delay-2-web-2-1",
+		faultID,
 	)
 	assert.NoError(t, err)
 
@@ -123,92 +119,5 @@ services:
 		t,
 		afterHeal-before,
 		100*time.Millisecond,
-	)
-}
-
-func runLoad(
-	t *testing.T,
-	sessionStore session.SessionStore,
-	eventStore event.EventStore,
-	composeFile string,
-) (string, error) {
-	t.Helper()
-
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := load.NewLoadCmd(app)
-
-	return clitest.ExecuteCommand(t, cmd, composeFile)
-}
-
-func runDelay(
-	t *testing.T,
-	sessionStore session.SessionStore,
-	eventStore event.EventStore,
-	sessionID string,
-	nodeAName string,
-	nodeBName string,
-	delayDuration time.Duration,
-) (string, error) {
-	t.Helper()
-
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewDelayCmd(app)
-
-	return clitest.ExecuteCommand(
-		t,
-		cmd,
-		sessionID,
-		nodeAName,
-		nodeBName,
-		delayDuration.String(),
-	)
-}
-
-func runHeal(
-	t *testing.T,
-	sessionStore session.SessionStore,
-	eventStore event.EventStore,
-	sessionID string,
-	nodeAName string,
-	nodeBName string,
-) (string, error) {
-	t.Helper()
-
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewHealCmd(app)
-
-	return clitest.ExecuteCommand(
-		t,
-		cmd,
-		sessionID,
-		nodeAName,
-		nodeBName,
 	)
 }

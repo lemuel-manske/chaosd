@@ -1,4 +1,4 @@
-package root
+package api
 
 import (
 	"fmt"
@@ -10,10 +10,10 @@ func NewRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "chaosd",
 		Short: "Chaosd is a laboratory for distributed systems",
-		Run:   run,
-	}
-}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println(cmd.OutOrStdout(), "Chaosd command executed")
 
-func run(cmd *cobra.Command, args []string) {
-	fmt.Println(cmd.OutOrStdout(), "Chaosd command executed")
+			return nil
+		},
+	}
 }

@@ -5,13 +5,11 @@ package ps
 import (
 	"testing"
 
-	"chaosd/cli/application"
-
 	"chaosd/cli/clitest"
 	"chaosd/cli/internal/docker/dockertest"
 	"chaosd/cli/internal/event/eventtest"
-	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/session/sessiontest"
+	"chaosd/cli/test"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -24,10 +22,13 @@ services:
     image: nginx:alpine
 `)
 
-	output, err := runPs(t, app.ComposeFile)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	output, err := clitest.RunPs(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	clitest.AssertLineCountContains(t, output, 1, "web", "running")
+	test.AssertLineCountContains(t, output, 1, "web", "running")
 }
 
 func TestPsCmd_MultipleComposeProjects_PrintsOnlySessionProject(t *testing.T) {
@@ -45,10 +46,13 @@ services:
     image: nginx:alpine
 `)
 
-	output, err := runPs(t, app1.ComposeFile)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	output, err := clitest.RunPs(t, sessionStore, eventStore, app1.ComposeFile)
 	assert.NoError(t, err)
 
-	clitest.AssertLineCountContains(t, output, 1, "web", "running")
+	test.AssertLineCountContains(t, output, 1, "web", "running")
 
 	assert.NotContains(t, output, "project2")
 }
@@ -63,10 +67,13 @@ services:
       replicas: 3
 `)
 
-	output, err := runPs(t, app.ComposeFile)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	output, err := clitest.RunPs(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	clitest.AssertLineCountContains(t, output, 3, "web", "running")
+	test.AssertLineCountContains(t, output, 3, "web", "running")
 }
 
 func TestPsCmd_StoppedContainer_PrintsExitedStatus(t *testing.T) {
@@ -79,10 +86,13 @@ services:
 
 	dockertest.StopContainerByServiceName(t, app.ProjectName, "web")
 
-	output, err := runPs(t, app.ComposeFile)
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	output, err := clitest.RunPs(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	clitest.AssertLineCountContains(t, output, 1, "web", "exited")
+	test.AssertLineCountContains(t, output, 1, "web", "exited")
 }
 
 func TestPsCmd_MissingContainer_PrintsMissingStatus(t *testing.T) {
@@ -95,33 +105,11 @@ services:
 
 	dockertest.RemoveContainerByServiceName(t, app.ProjectName, "web")
 
-	output, err := runPs(t, app.ComposeFile)
-	assert.NoError(t, err)
-
-	clitest.AssertLineCountContains(t, output, 1, "web", "missing")
-}
-
-func runPs(t *testing.T, composeFile string) (string, error) {
-	t.Helper()
-
 	sessionStore := sessiontest.NewTmpSessionStore(t)
 	eventStore := eventtest.NewTmpEventStore(t)
 
-	createdSession, err := sessionStore.Create("project", composeFile)
-
+	output, err := clitest.RunPs(t, sessionStore, eventStore, app.ComposeFile)
 	assert.NoError(t, err)
 
-	dockerProvider := dockertest.NewRealDockerProvider()
-	networkManager := networktest.NewRealManager()
-
-	app := application.NewApplication(
-		application.WithSessionStore(sessionStore),
-		application.WithEventStore(eventStore),
-		application.WithDockerProvider(dockerProvider),
-		application.WithNetworkManager(networkManager),
-	)
-
-	cmd := NewPsCmd(app)
-
-	return clitest.ExecuteCommand(t, cmd, string(createdSession.ID))
+	test.AssertLineCountContains(t, output, 1, "web", "missing")
 }

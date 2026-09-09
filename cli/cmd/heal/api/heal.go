@@ -1,4 +1,4 @@
-package partition
+package api
 
 import (
 	"fmt"
@@ -9,18 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewPartitionCmd(
+func NewHealCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "partition",
+		Use: "heal",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
+			faultID := session.FaultID(args[1])
 
-			nodeAName := args[1]
-			nodeBName := args[2]
-
-			err := app.Partition(cmd.Context(), sessionID, nodeAName, nodeBName)
+			err := app.Heal(cmd.Context(), sessionID, faultID)
 
 			if err != nil {
 				return err
@@ -28,13 +26,12 @@ func NewPartitionCmd(
 
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"%s and %s partitioned\n",
-				nodeAName,
-				nodeBName,
+				"fault %s healed\n",
+				faultID,
 			)
 
 			return nil
 		},
-		Args: cobra.ExactArgs(3),
+		Args: cobra.ExactArgs(2),
 	}
 }

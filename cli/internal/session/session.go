@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"chaosd/cli/internal/storage"
@@ -32,6 +33,10 @@ const (
 
 type FaultID string
 
+func ParseFaultID(id string) FaultID {
+	return FaultID(strings.TrimSpace(id))
+}
+
 func NewFaultID() FaultID {
 	id := uuid.NewString()
 	return FaultID(faultIDPrefix + id[:faultIDLength])
@@ -55,6 +60,10 @@ func (f *Fault) IsHealed() bool {
 
 type SessionID string
 
+func ParseSessionID(id string) SessionID {
+	return SessionID(strings.TrimSpace(id))
+}
+
 func NewSessionID() SessionID {
 	id := uuid.NewString()
 	return SessionID(sessionIDPrefix + id[:sessionIDLength])
@@ -69,14 +78,10 @@ type Session struct {
 	Faults      []Fault   `json:"faults"`
 }
 
-func (s *Session) GetFault(nodeAName string, nodeBName string) *Fault {
+func (s *Session) GetFault(ID FaultID) *Fault {
 	for i := range s.Faults {
-		fault := &s.Faults[i]
-		if fault.NodeA == nodeAName && fault.NodeB == nodeBName {
-			return fault
-		}
-		if fault.NodeA == nodeBName && fault.NodeB == nodeAName {
-			return fault
+		if s.Faults[i].ID == ID {
+			return &s.Faults[i]
 		}
 	}
 
@@ -90,7 +95,7 @@ type SessionStore interface {
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
 	Delete(id SessionID) error
 	Get(id SessionID) (*Session, error)
-	HealPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) error
+	HealFault(sessionID SessionID, faultID FaultID) error
 }
 
 type FileSessionStore struct {
@@ -144,23 +149,22 @@ func (s *FileSessionStore) AddPartitionFault(
 	return fault.ID, nil
 }
 
-func (s *FileSessionStore) HealPartitionFault(
+func (s *FileSessionStore) HealFault(
 	sessionID SessionID,
-	nodeAName string,
-	nodeBName string,
+	faultID FaultID,
 ) error {
 	_session, err := s.Get(sessionID)
 	if err != nil {
 		return err
 	}
 
-	fault := _session.GetFault(nodeAName, nodeBName)
+	fault := _session.GetFault(faultID)
 	if fault == nil {
-		return fmt.Errorf("no partition fault found between %s and %s", nodeAName, nodeBName)
+		return fmt.Errorf("fault %s not found", faultID)
 	}
 
 	if fault.IsHealed() {
-		return fmt.Errorf("partition fault between %s and %s is already healed", nodeAName, nodeBName)
+		return fmt.Errorf("fault %s is already healed", faultID)
 	}
 
 	// control fault healing, to now expose as a public API

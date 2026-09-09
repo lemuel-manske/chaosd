@@ -1,40 +1,30 @@
-package partition
+package api
 
 import (
-	"fmt"
-
 	"chaosd/cli/application"
 	"chaosd/cli/internal/session"
 
 	"github.com/spf13/cobra"
 )
 
-func NewHealCmd(
+func NewPsCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "heal",
+		Use: "ps",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 
-			nodeAName := args[1]
-			nodeBName := args[2]
-
-			err := app.Heal(cmd.Context(), sessionID, nodeAName, nodeBName) // TODO: heal by fault ID
+			t, err := app.GetTopology(cmd.Context(), sessionID)
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"%s and %s healed\n",
-				nodeAName,
-				nodeBName,
-			)
+			t.Print(cmd.OutOrStdout())
 
 			return nil
 		},
-		Args: cobra.ExactArgs(3),
+		Args: cobra.ExactArgs(1),
 	}
 }
