@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/storage"
 
 	"github.com/google/uuid"
@@ -21,6 +21,7 @@ const (
 	healedStatus = "healed"
 
 	partitionFaultType = "partition"
+	delayFaultType     = "delay"
 
 	sessionFileExt = ".json"
 
@@ -43,11 +44,40 @@ func NewFaultID() FaultID {
 }
 
 type Fault struct {
-	ID     FaultID `json:"id"`
-	Type   string  `json:"type"`
-	NodeA  string  `json:"node_a"`
-	NodeB  string  `json:"node_b"`
-	Status string  `json:"status"`
+	ID      FaultID                 `json:"id"`
+	Type    string                  `json:"type"`
+	NodeA   string                  `json:"node_a"`
+	NodeB   string                  `json:"node_b"`
+	Status  string                  `json:"status"`
+	Effects []network.AppliedEffect `json:"effects,omitempty"`
+}
+
+func NewPartitionFault(nodeA, nodeB string) Fault {
+	return Fault{
+		ID:      NewFaultID(),
+		Type:    partitionFaultType,
+		NodeA:   nodeA,
+		NodeB:   nodeB,
+		Status:  activeStatus,
+	}
+}
+
+func NewDelayFault(nodeA, nodeB string) Fault {
+	return Fault{
+		ID:      NewFaultID(),
+		Type:    delayFaultType,
+		NodeA:   nodeA,
+		NodeB:   nodeB,
+		Status:  activeStatus,
+	}
+}
+
+func (f *Fault) SetEffects(effects []network.AppliedEffect) {
+	f.Effects = effects
+}
+
+func (f *Fault) IsDelay() bool {
+	return f.Type == delayFaultType
 }
 
 func (f *Fault) IsPartition() bool {
@@ -90,8 +120,7 @@ func (s *Session) GetFault(ID FaultID) *Fault {
 
 // SessionStore is responsible for managing sessions and their subordinates.
 type SessionStore interface {
-	AddDelayFault(sessionID SessionID, nodeAName string, nodeBName string, delay time.Duration) (FaultID, error)
-	AddPartitionFault(sessionID SessionID, nodeAName string, nodeBName string) (FaultID, error)
+	AddFault(sessionID SessionID, fault Fault) (FaultID, error)
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
 	Delete(id SessionID) error
 	Get(id SessionID) (*Session, error)
@@ -109,23 +138,14 @@ func NewFileSessionStore(dir string) SessionStore {
 	return &FileSessionStore{dir: dir, writer: writer}
 }
 
-func (s *FileSessionStore) AddPartitionFault(
+func (s *FileSessionStore) AddFault(
 	sessionID SessionID,
-	nodeAName string,
-	nodeBName string,
+	fault Fault,
 ) (FaultID, error) {
 	session, err := s.Get(sessionID)
 
 	if err != nil {
 		return "", err
-	}
-
-	fault := Fault{
-		ID:     NewFaultID(),
-		Type:   partitionFaultType,
-		NodeA:  nodeAName,
-		NodeB:  nodeBName,
-		Status: activeStatus,
 	}
 
 	session.Faults = append(session.Faults, fault)
@@ -167,7 +187,7 @@ func (s *FileSessionStore) HealFault(
 		return fmt.Errorf("fault %s is already healed", faultID)
 	}
 
-	// control fault healing, to now expose as a public API
+	// control fault healing, to not expose as a public API
 	fault.Status = healedStatus
 
 	path, err := s.createPathToSession(sessionID)
@@ -185,47 +205,6 @@ func (s *FileSessionStore) HealFault(
 	}
 
 	return nil
-}
-
-func (s *FileSessionStore) AddDelayFault(
-	sessionID SessionID,
-	nodeAName string,
-	nodeBName string,
-	delay time.Duration,
-) (FaultID, error) {
-	session, err := s.Get(sessionID)
-
-	if err != nil {
-		return "", err
-	}
-
-	fault := Fault{
-		ID:     NewFaultID(),
-		Type:   "delay",
-		NodeA:  nodeAName,
-		NodeB:  nodeBName,
-		Status: activeStatus,
-	}
-
-	session.Faults = append(session.Faults, fault)
-
-	path, err := s.createPathToSession(sessionID)
-
-	if err != nil {
-		return "", err
-	}
-
-	data, err := json.MarshalIndent(session, "", "  ")
-
-	if err != nil {
-		return "", fmt.Errorf("encode session: %w", err)
-	}
-
-	if err := s.writer.Write(path, data, 0600); err != nil {
-		return "", fmt.Errorf("write session: %w", err)
-	}
-
-	return fault.ID, nil
 }
 
 func (s *FileSessionStore) Get(id SessionID) (*Session, error) {

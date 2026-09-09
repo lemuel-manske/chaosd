@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/network/networktest"
 	"chaosd/cli/internal/topology"
 
@@ -36,7 +37,7 @@ func TestPartition(t *testing.T) {
 
 	faultID := "test-fault-id"
 
-	err := manager.Partition(
+	_, err := manager.Partition(
 		ctx,
 		nodeA,
 		nodeB,
@@ -72,7 +73,7 @@ func TestPartition_NoCommonNetworks(t *testing.T) {
 
 	faultID := "test-fault-id"
 
-	err := manager.Partition(
+	_, err := manager.Partition(
 		ctx,
 		nodeA,
 		nodeB,
@@ -89,71 +90,22 @@ func TestHeal(t *testing.T) {
 
 	ctx := context.Background()
 
-	nodeA := topology.Node{
-		ContainerName: "node-a",
-		Networks: []topology.NetworkEndpoint{
-			{
-				NetworkName: "frontend",
-				IPAddress:   "192.168.10.1",
-			},
-		},
-	}
-	nodeB := topology.Node{
-		ContainerName: "node-b",
-		Networks: []topology.NetworkEndpoint{
-			{
-				NetworkName: "frontend",
-				IPAddress:   "192.168.10.2",
-			},
-		},
-	}
-
 	faultID := "test-fault-id"
+
+	effects := []network.AppliedEffect{
+		{
+			NetworkName: "frontend",
+			SourceIP:    "192.168.10.1",
+			TargetIP:    "192.168.10.2",
+		},
+	}
 
 	err := manager.Heal(
 		ctx,
-		nodeA,
-		nodeB,
 		faultID,
+		"partition",
+		effects,
 	)
 
 	assert.NoError(t, err)
-}
-
-func TestHeal_NoCommonNetworks(t *testing.T) {
-	manager := networktest.NewStubManager()
-
-	ctx := context.Background()
-
-	nodeA := topology.Node{
-		ContainerName: "node-a",
-		Networks: []topology.NetworkEndpoint{
-			{
-				NetworkName: "frontend",
-				IPAddress:   "192.168.10.1",
-			},
-		},
-	}
-	nodeB := topology.Node{
-		ContainerName: "node-b",
-		Networks: []topology.NetworkEndpoint{
-			{
-				NetworkName: "backend",
-				IPAddress:   "192.168.10.2",
-			},
-		},
-	}
-
-	faultID := "test-fault-id"
-
-	err := manager.Heal(
-		ctx,
-		nodeA,
-		nodeB,
-		faultID,
-	)
-
-	assert.Error(t, err)
-
-	assert.Equal(t, "no shared network found between node-a and node-b", err.Error())
 }

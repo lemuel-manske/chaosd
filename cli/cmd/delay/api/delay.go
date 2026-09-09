@@ -27,7 +27,7 @@ func NewDelayCmd(
 				return fmt.Errorf("invalid delay duration: %v", err)
 			}
 
-			err = app.Delay(cmd.Context(), sessionID, nodeAName, nodeBName, delay)
+			faultID, err := app.Delay(cmd.Context(), sessionID, nodeAName, nodeBName, delay)
 
 			if err != nil {
 				return err
@@ -35,9 +35,8 @@ func NewDelayCmd(
 
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"%s and %s delayed\n",
-				nodeAName,
-				nodeBName,
+				"%s\n",
+				faultID,
 			)
 
 			return nil

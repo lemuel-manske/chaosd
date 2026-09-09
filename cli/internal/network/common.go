@@ -13,21 +13,6 @@ type HealRequest struct {
 	Metadata RuleMetadata
 }
 
-func NewHealRequest(
-	nodeA topology.Node,
-	nodeB topology.Node,
-	faultID string,
-) HealRequest {
-	links := LinksBetween(nodeA, nodeB)
-
-	return HealRequest{
-		Links: links,
-		Metadata: RuleMetadata{
-			FaultID: faultID,
-		},
-	}
-}
-
 type ActionResult struct {
 	Link Link
 	Err  error

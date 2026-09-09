@@ -8,10 +8,39 @@ import (
 	"chaosd/cli/internal/topology"
 )
 
+const (
+	faultKindPartition string = "partition"
+	faultKindDelay     string = "delay"
+)
+
+type AppliedEffect struct {
+	NetworkName string
+	SourceIP    string
+	TargetIP    string
+}
+
 type Manager interface {
-	Delay(ctx context.Context, a topology.Node, b topology.Node, faultID string, delay time.Duration) error
-	Heal(ctx context.Context, a topology.Node, b topology.Node, faultID string) error
-	Partition(ctx context.Context, a topology.Node, b topology.Node, faultID string) error
+	Delay(
+		ctx context.Context,
+		a topology.Node,
+		b topology.Node,
+		faultID string,
+		delay time.Duration,
+	) ([]AppliedEffect, error)
+
+	Partition(
+		ctx context.Context,
+		a topology.Node,
+		b topology.Node,
+		faultID string,
+	) ([]AppliedEffect, error)
+
+	Heal(
+		ctx context.Context,
+		faultID string,
+		faultKind string,
+		effects []AppliedEffect,
+	) error
 }
 
 type concreteManager struct {
@@ -36,45 +65,32 @@ func (m *concreteManager) Partition(
 	a topology.Node,
 	b topology.Node,
 	faultID string,
-) error {
+) ([]AppliedEffect, error) {
 	request := NewPartitionRequest(a, b, faultID)
 
+	effects := []AppliedEffect{}
+
 	if len(request.Links) == 0 {
-		return fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
+		return effects, fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
 	}
 
 	results := m.partitioner.Partition(ctx, request)
 
 	for _, r := range results {
 		if r.Err != nil {
-			return r.Err
+			return effects, r.Err
 		}
-	}
 
-	return nil
-}
-
-func (m *concreteManager) Heal(
-	ctx context.Context,
-	a topology.Node,
-	b topology.Node,
-	faultID string,
-) error {
-	request := NewHealRequest(a, b, faultID)
-
-	if len(request.Links) == 0 {
-		return fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
-	}
-
-	results := m.partitioner.Heal(ctx, request)
-
-	for _, r := range results {
-		if r.Err != nil {
-			return r.Err
+		e := AppliedEffect{
+			NetworkName: r.Link.NetworkName,
+			SourceIP:    r.Link.SourceIP,
+			TargetIP:    r.Link.TargetIP,
 		}
+
+		effects = append(effects, e)
 	}
 
-	return nil
+	return effects, nil
 }
 
 func (m *concreteManager) Delay(
@@ -83,14 +99,69 @@ func (m *concreteManager) Delay(
 	b topology.Node,
 	faultID string,
 	delay time.Duration,
-) error {
+) ([]AppliedEffect, error) {
 	request := NewDelayRequest(a, b, faultID, delay)
 
+	effects := []AppliedEffect{}
+
 	if len(request.Links) == 0 {
-		return fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
+		return effects, fmt.Errorf("no shared network found between %s and %s", a.ContainerName, b.ContainerName)
 	}
 
 	results := m.delayer.Delay(ctx, request)
+
+	for _, r := range results {
+		if r.Err != nil {
+			return effects, r.Err
+		}
+
+		e := AppliedEffect{
+			NetworkName: r.Link.NetworkName,
+			SourceIP:    r.Link.SourceIP,
+			TargetIP:    r.Link.TargetIP,
+		}
+
+		effects = append(effects, e)
+	}
+
+	return effects, nil
+}
+
+func (m *concreteManager) Heal(
+	ctx context.Context,
+	faultID string,
+	faultKind string,
+	effects []AppliedEffect,
+) error {
+	links := make([]Link, 0, len(effects))
+
+	for _, effect := range effects {
+		links = append(links, Link{
+			NetworkName: effect.NetworkName,
+			SourceIP:    effect.SourceIP,
+			TargetIP:    effect.TargetIP,
+		})
+	}
+
+	request := HealRequest{
+		Links: links,
+		Metadata: RuleMetadata{
+			FaultID: faultID,
+		},
+	}
+
+	var results []ActionResult
+
+	switch faultKind {
+	case faultKindDelay:
+		results = m.delayer.Heal(ctx, request)
+
+	case faultKindPartition:
+		results = m.partitioner.Heal(ctx, request)
+
+	default:
+		return fmt.Errorf("unsupported fault kind %q", faultKind)
+	}
 
 	for _, r := range results {
 		if r.Err != nil {

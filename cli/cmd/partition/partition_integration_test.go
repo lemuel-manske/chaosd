@@ -138,3 +138,66 @@ services:
 	dockertest.AssertCanReach(t, "project-partition-2", "node-a", "http://node-b")
 	dockertest.AssertCanReach(t, "project-partition-2", "node-b", "http://node-a")
 }
+
+func TestPartitionCmd_RunningNodes_BlocksCommunicationByIP(t *testing.T) {
+	app := dockertest.StartComposeApp(t, "project-partition-3", `name: project-partition-3
+
+services:
+  node-a:
+    image: wbitt/network-multitool
+  node-b:
+    image: nginx:alpine
+`)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+	eventStore := eventtest.NewTmpEventStore(t)
+
+	_session, _ := sessionStore.Create("project-partition-3", app.ComposeFile)
+
+	dockertest.AssertCanReach(
+		t,
+		"project-partition-3",
+		"node-a",
+		"http://node-b",
+	)
+
+	output, err := clitest.RunPartition(
+		t,
+		sessionStore,
+		eventStore,
+		_session.ID,
+		"project-partition-3-node-a-1",
+		"project-partition-3-node-b-1",
+	)
+	assert.NoError(t, err)
+
+	faultID := session.ParseFaultID(output)
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-partition-3",
+		"node-a",
+		"http://node-b",
+	)
+
+	dockertest.StopContainerByServiceName(t, "project-partition-3", "node-a")
+
+	dockertest.AssertCannotReach(
+		t,
+		"project-partition-3",
+		"node-a",
+		"http://node-b",
+	)
+
+	output, err = clitest.RunHeal(
+		t,
+		sessionStore,
+		eventStore,
+		_session.ID,
+		faultID,
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, output, "healed")
+
+	dockertest.AssertCanReach(t, "project-partition-3", "node-a", "http://node-b")
+}

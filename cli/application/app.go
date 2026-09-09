@@ -1,3 +1,4 @@
+// Package application defines the application layer of the CLI
 package application
 
 import (
@@ -251,13 +252,17 @@ func (app *Application) Partition(
 		return "", err
 	}
 
-	faultID, err := app.SessionStore.AddPartitionFault(sessionID, nodeAName, nodeBName)
+	fault := session.NewPartitionFault(nodeAName, nodeBName)
+
+	effects, err := app.NetworkManager.Partition(ctx, *nodeA, *nodeB, string(fault.ID))
 
 	if err != nil {
 		return "", err
 	}
 
-	err = app.NetworkManager.Partition(ctx, *nodeA, *nodeB, string(faultID))
+	fault.SetEffects(effects)
+
+	faultID, err := app.SessionStore.AddFault(sessionID, fault)
 
 	if err != nil {
 		return "", err
@@ -267,6 +272,78 @@ func (app *Application) Partition(
 		Type:      event.PartitionAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.PartitionAppliedEventData{
+			NodeAName: nodeAName,
+			NodeBName: nodeBName,
+		},
+	})
+
+	return faultID, nil
+}
+
+func (app *Application) Delay(
+	ctx context.Context,
+	sessionID session.SessionID,
+	nodeAName string,
+	nodeBName string,
+	delay time.Duration,
+) (session.FaultID, error) {
+	_session, err := app.SessionStore.Get(sessionID)
+
+	if err != nil {
+		return "", err
+	}
+
+	composeFile, err := docker.Parse(_session.ComposeFile)
+
+	if err != nil {
+		return "", err
+	}
+
+	cli, err := app.DockerProvider.NewClient()
+
+	if err != nil {
+		return "", newDockerClientError(err)
+	}
+
+	t, err := topology.Load(composeFile, ctx, cli)
+
+	if err != nil {
+		return "", err
+	}
+
+	nodeA, err := getRunningNode(t, nodeAName)
+
+	if err != nil {
+		return "", err
+	}
+
+	nodeB, err := getRunningNode(t, nodeBName)
+
+	if err != nil {
+		return "", err
+	}
+
+	aFault := session.NewDelayFault(nodeAName, nodeBName)
+
+	appliedEffects, err := app.NetworkManager.Delay(ctx, *nodeA, *nodeB, string(aFault.ID), delay)
+
+	if err != nil {
+		return "", err
+	}
+
+	aFault.SetEffects(appliedEffects)
+
+	faultID, err := app.SessionStore.AddFault(sessionID, aFault)
+
+	if err != nil {
+		return "", err
+	}
+
+	app.EventStore.Append(sessionID, event.Event{
+		Type:      event.DelayAppliedEvent,
+		CreatedAt: time.Now(),
+		Data: event.DelayAppliedEventData{
+			Delay:     delay,
 			NodeAName: nodeAName,
 			NodeBName: nodeBName,
 		},
@@ -286,50 +363,17 @@ func (app *Application) Heal(
 		return err
 	}
 
-	composeFile, err := docker.Parse(_session.ComposeFile)
-
-	if err != nil {
-		return err
-	}
-
-	cli, err := app.DockerProvider.NewClient()
-
-	if err != nil {
-		return newDockerClientError(err)
-	}
-
-	t, err := topology.Load(composeFile, ctx, cli)
-
-	if err != nil {
-		return err
-	}
-
 	fault := _session.GetFault(faultID)
 
 	if fault == nil {
 		return fmt.Errorf("fault %s not found", faultID)
 	}
 
-	// TODO: do not recalculate IPs
-	// is the containers are recreated, the IPs will change, and the partition will not be healed correctly
-
-	nodeA, err := getRunningNode(t, fault.NodeA)
-
-	if err != nil {
-		return err
-	}
-
-	nodeB, err := getRunningNode(t, fault.NodeB)
-
-	if err != nil {
-		return err
-	}
-
 	if fault.IsHealed() {
 		return fmt.Errorf("fault %s is already healed", faultID)
 	}
 
-	err = app.NetworkManager.Heal(ctx, *nodeA, *nodeB, string(fault.ID))
+	err = app.NetworkManager.Heal(ctx, string(fault.ID), fault.Type, fault.Effects)
 
 	if err != nil {
 		return err
@@ -345,82 +389,15 @@ func (app *Application) Heal(
 		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.HealAppliedEventData{
-			NodeAName: nodeA.ContainerName,
-			NodeBName: nodeB.ContainerName,
+			NodeAName: fault.NodeA,
+			NodeBName: fault.NodeB,
 		},
 	})
 
 	return nil
 }
 
-func (app *Application) Delay(
-	ctx context.Context,
-	sessionID session.SessionID,
-	nodeAName string,
-	nodeBName string,
-	delay time.Duration,
-) error {
-	_session, err := app.SessionStore.Get(sessionID)
-
-	if err != nil {
-		return err
-	}
-
-	composeFile, err := docker.Parse(_session.ComposeFile)
-
-	if err != nil {
-		return err
-	}
-
-	cli, err := app.DockerProvider.NewClient()
-
-	if err != nil {
-		return newDockerClientError(err)
-	}
-
-	t, err := topology.Load(composeFile, ctx, cli)
-
-	if err != nil {
-		return err
-	}
-
-	nodeA, err := getRunningNode(t, nodeAName)
-
-	if err != nil {
-		return err
-	}
-
-	nodeB, err := getRunningNode(t, nodeBName)
-
-	if err != nil {
-		return err
-	}
-
-	faultID, err := app.SessionStore.AddDelayFault(sessionID, nodeAName, nodeBName, delay)
-
-	if err != nil {
-		return err
-	}
-
-	err = app.NetworkManager.Delay(ctx, *nodeA, *nodeB, string(faultID), delay)
-
-	if err != nil {
-		return err
-	}
-
-	app.EventStore.Append(sessionID, event.Event{
-		Type:      event.DelayAppliedEvent,
-		CreatedAt: time.Now(),
-		Data: event.DelayAppliedEventData{
-			Delay:     delay,
-			NodeAName: nodeAName,
-			NodeBName: nodeBName,
-		},
-	})
-
-	return nil
-}
-
+// TODO: move this logic to topology
 func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {
 	node := t.NodeByName(name)
 	if node == nil {

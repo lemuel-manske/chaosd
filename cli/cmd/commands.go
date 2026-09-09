@@ -10,6 +10,7 @@ import (
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/network"
 
+	delay_api "chaosd/cli/cmd/delay/api"
 	events_api "chaosd/cli/cmd/events/api"
 	heal_api "chaosd/cli/cmd/heal/api"
 	load_api "chaosd/cli/cmd/load/api"
@@ -51,9 +52,10 @@ func Init(rootCmd *cobra.Command) {
 		application.WithNetworkManager(networkManager),
 	)
 
+	rootCmd.AddCommand(delay_api.NewDelayCmd(app))
 	rootCmd.AddCommand(events_api.NewEventsCmd(app))
-	rootCmd.AddCommand(load_api.NewLoadCmd(app))
 	rootCmd.AddCommand(heal_api.NewHealCmd(app))
+	rootCmd.AddCommand(load_api.NewLoadCmd(app))
 	rootCmd.AddCommand(partition_api.NewPartitionCmd(app))
 	rootCmd.AddCommand(ps_api.NewPsCmd(app))
 	rootCmd.AddCommand(restart_api.NewRestartCmd(app))
