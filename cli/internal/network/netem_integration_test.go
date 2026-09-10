@@ -1,4 +1,4 @@
-// go:build integration
+//go:build integration
 
 package network_test
 
@@ -7,54 +7,82 @@ import (
 	"testing"
 	"time"
 
+	"chaosd/cli/internal/docker"
 	"chaosd/cli/internal/network"
+	"chaosd/cli/internal/topology"
 
-	"chaosd/cli/internal/network/networktest"
+	"chaosd/cli/internal/docker/dockertest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNetemInjector_DelayAndHeal(t *testing.T) {
+func TestNetemInjector_DockerBridgeDelayAndHeal(t *testing.T) {
+	app := dockertest.StartCompose(t, "project-netem-1", `name: project-netem-1
+services:
+  node-a:
+    image: nginx:alpine
+
+  node-b:
+    image: nginx:alpine
+`)
+
 	ctx := context.Background()
 
-	testNetwork := networktest.SetupNetwork(t)
+	dockerProvider := dockertest.NewRealDockerProvider()
+	dockerClient, err := dockerProvider.NewClient()
+	require.NoError(t, err)
+
+	composeFile, err := docker.Parse(app.ComposeFile)
+	require.NoError(t, err)
+
+	tl, err := topology.Load(composeFile, ctx, dockerClient)
+	require.NoError(t, err)
+
+	nodeA := tl.NodesByServiceName("node-a")[0]
+	nodeB := tl.NodesByServiceName("node-b")[0]
+	assert.NotNil(t, nodeA)
+	assert.NotNil(t, nodeB)
+
+	containerA := dockertest.ContainerByServiceName(t, "project-netem-1", "node-a")
+
+	dockertest.AssertReachable(
+		t,
+		containerA,
+		"node-b",
+	)
 
 	injector := network.NewNetemInjector()
 
-	before := networktest.MeasurePing(t, testNetwork.TargetIP)
+	faultID := "test-fault-id"
 
-	results := injector.Delay(ctx, network.DelayRequest{
-		Links: []network.Link{
-			{
-				SourceIP: testNetwork.SourceIP,
-				TargetIP: testNetwork.TargetIP,
-			},
-		},
-		Delay: 200 * time.Millisecond,
-	})
+	req := network.NewDelayRequest(nodeA, nodeB, faultID, 200*time.Millisecond)
+	results := injector.Delay(ctx, req)
 
-	assert.NoError(t, results[0].Err)
+	require.NoError(t, results[0].Err)
 
-	afterDelay := networktest.MeasurePing(t, testNetwork.TargetIP)
+	afterDelay := dockertest.MeasurePingFrom(
+		t,
+		containerA,
+		"node-b",
+	)
 
 	assert.GreaterOrEqual(
 		t,
 		afterDelay,
-		before+150*time.Millisecond,
+		150*time.Millisecond,
 	)
 
-	results = injector.Heal(ctx, network.HealRequest{
-		Links: []network.Link{
-			{
-				SourceIP: testNetwork.SourceIP,
-				TargetIP: testNetwork.TargetIP,
-			},
-		},
-	})
+	healReq := network.NewHealRequest(nodeA, nodeB, faultID)
+	results = injector.Heal(ctx, healReq)
 
-	assert.NoError(t, results[0].Err)
+	require.NoError(t, results[0].Err)
 
-	afterHeal := networktest.MeasurePing(t, testNetwork.TargetIP)
+	afterHeal := dockertest.MeasurePingFrom(
+		t,
+		containerA,
+		"node-b",
+	)
 
 	assert.Less(
 		t,

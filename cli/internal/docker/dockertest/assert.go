@@ -2,77 +2,76 @@ package dockertest
 
 import (
 	"context"
+	"io"
 	"testing"
+
+	"github.com/testcontainers/testcontainers-go"
 
 	"github.com/stretchr/testify/require"
 )
 
-func AssertNotReachable(
-	t *testing.T,
-	project string,
-	fromService string,
-	target string,
-) {
-	t.Helper()
-
-	ctr := ContainerByServiceName(t, project, fromService)
-
-	exitCode, output, err := ctr.Exec(
-		context.Background(),
-		[]string{
-			"curl",
-			"--silent",
-			"--show-error",
-			"--fail",
-			"--max-time",
-			"2",
-			target,
-		},
-	)
-
-	require.NoError(t, err)
-	require.NotEqualf(
-		t,
-		0,
-		exitCode,
-		"expected %s to not reach %s, output: %s",
-		fromService,
-		target,
-		output,
-	)
-}
-
 func AssertReachable(
 	t *testing.T,
-	project string,
-	fromService string,
+	container testcontainers.Container,
 	target string,
 ) {
 	t.Helper()
 
-	ctr := ContainerByServiceName(t, project, fromService)
+	ctx := context.Background()
 
-	exitCode, output, err := ctr.Exec(
-		context.Background(),
+	exitCode, reader, err := container.Exec(
+		ctx,
 		[]string{
-			"curl",
-			"--silent",
-			"--show-error",
-			"--fail",
-			"--max-time",
-			"2",
+			"ping",
+			"-c", "1",
+			"-W", "2",
 			target,
 		},
 	)
-
 	require.NoError(t, err)
+
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
 	require.Equalf(
 		t,
 		0,
 		exitCode,
-		"expected %s to reach %s, output: %s",
-		fromService,
+		"expected %s to be reachable, output: %s",
 		target,
-		output,
+		string(output),
+	)
+}
+
+func AssertNotReachable(
+	t *testing.T,
+	container testcontainers.Container,
+	target string,
+) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	exitCode, reader, err := container.Exec(
+		ctx,
+		[]string{
+			"ping",
+			"-c", "1",
+			"-W", "2",
+			target,
+		},
+	)
+	require.NoError(t, err)
+
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	require.NotEqualf(
+		t,
+		0,
+		exitCode,
+		"expected %s to not be reachable, output: %s",
+		target,
+		string(output),
 	)
 }

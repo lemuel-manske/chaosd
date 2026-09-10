@@ -16,12 +16,11 @@ import (
 )
 
 func TestLinuxFirewallInjector_PartitionAndHeal(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-firewall-1", `name: project-firewall-1
+	app := dockertest.StartCompose(t, "project-firewall-1", `name: project-firewall-1
 
 services:
   node-a:
-    image: curlimages/curl
-    command: ["sleep", "infinity"]
+    image: nginx:alpine
 
   node-b:
     image: nginx:alpine
@@ -44,11 +43,12 @@ services:
 	assert.NotNil(t, nodaA)
 	assert.NotNil(t, nodeB)
 
+	containerA := dockertest.ContainerByServiceName(t, "project-firewall-1", "node-a")
+
 	dockertest.AssertReachable(
 		t,
-		"project-firewall-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	linuxFirewallInjector := network.NewLinuxFirewallInjector()
@@ -64,9 +64,8 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-firewall-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	healRequest := network.NewHealRequest(nodaA, nodeB, fakeFaultID)
@@ -78,8 +77,7 @@ services:
 
 	dockertest.AssertReachable(
 		t,
-		"project-firewall-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 }

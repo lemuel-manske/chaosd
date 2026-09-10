@@ -17,7 +17,7 @@ import (
 )
 
 func TestLoadCmd_RunningComposeProject_CreatesSession(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-load-1`, `name: project-load-1
+	app := dockertest.StartCompose(t, `project-load-1`, `name: project-load-1
 services:
   web:
     image: nginx

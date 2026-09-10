@@ -3,6 +3,7 @@
 package partition
 
 import (
+	"context"
 	"testing"
 
 	"chaosd/cli/clitest"
@@ -13,15 +14,15 @@ import (
 	"chaosd/cli/internal/session/sessiontest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPartitionCmd_RunningNodes_BlocksCommunicationBetweenThem(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-partition-1", `name: project-partition-1
+	app := dockertest.StartCompose(t, "project-partition-1", `name: project-partition-1
 
 services:
   node-a:
-    image: curlimages/curl
-    command: ["sleep", "infinity"]
+    image: nginx:alpine
 
   node-b:
     image: nginx:alpine
@@ -32,11 +33,12 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-1", app.ComposeFile)
 
+	container := dockertest.ContainerByServiceName(t, "project-partition-1", "node-a")
+
 	dockertest.AssertReachable(
 		t,
-		"project-partition-1",
-		"node-a",
-		"http://node-b",
+		container,
+		"node-b",
 	)
 
 	output, err := clitest.RunPartition(
@@ -53,9 +55,8 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-partition-1",
-		"node-a",
-		"http://node-b",
+		container,
+		"node-b",
 	)
 
 	output, err = clitest.RunHeal(
@@ -71,14 +72,13 @@ services:
 
 	dockertest.AssertReachable(
 		t,
-		"project-partition-1",
-		"node-a",
-		"http://node-b",
+		container,
+		"node-b",
 	)
 }
 
 func TestPartitionCmd_RunningNodes_BlocksCommunicationBetweenThem_Bidirectional(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-partition-2", `name: project-partition-2
+	app := dockertest.StartCompose(t, "project-partition-2", `name: project-partition-2
 
 services:
   node-a:
@@ -92,11 +92,14 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-2", app.ComposeFile)
 
+	containerA := dockertest.ContainerByServiceName(t, "project-partition-2", "node-a")
+
+	containerB := dockertest.ContainerByServiceName(t, "project-partition-2", "node-b")
+
 	dockertest.AssertReachable(
 		t,
-		"project-partition-2",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	output, err := clitest.RunPartition(
@@ -113,16 +116,14 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-partition-2",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-partition-2",
-		"node-b",
-		"http://node-a",
+		containerB,
+		"node-a",
 	)
 
 	output, err = clitest.RunHeal(
@@ -135,12 +136,21 @@ services:
 	assert.NoError(t, err)
 	assert.Contains(t, output, "healed")
 
-	dockertest.AssertReachable(t, "project-partition-2", "node-a", "http://node-b")
-	dockertest.AssertReachable(t, "project-partition-2", "node-b", "http://node-a")
+	dockertest.AssertReachable(
+		t,
+		containerA,
+		"node-b",
+	)
+
+	dockertest.AssertReachable(
+		t,
+		containerB,
+		"node-a",
+	)
 }
 
 func TestPartitionCmd_RunningNodes_BlocksCommunicationByIP(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-partition-3", `name: project-partition-3
+	app := dockertest.StartCompose(t, "project-partition-3", `name: project-partition-3
 
 services:
   node-a:
@@ -154,11 +164,12 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-3", app.ComposeFile)
 
+	containerA := dockertest.ContainerByServiceName(t, "project-partition-3", "node-a")
+
 	dockertest.AssertReachable(
 		t,
-		"project-partition-3",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	output, err := clitest.RunPartition(
@@ -175,19 +186,11 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-partition-3",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	dockertest.StopContainerByServiceName(t, "project-partition-3", "node-a")
-
-	dockertest.AssertNotReachable(
-		t,
-		"project-partition-3",
-		"node-a",
-		"http://node-b",
-	)
 
 	output, err = clitest.RunHeal(
 		t,
@@ -199,5 +202,12 @@ services:
 	assert.NoError(t, err)
 	assert.Contains(t, output, "healed")
 
-	dockertest.AssertReachable(t, "project-partition-3", "node-a", "http://node-b")
+	err = containerA.Start(context.Background())
+	require.NoError(t, err)
+
+	dockertest.AssertReachable(
+		t,
+		containerA,
+		"node-b",
+	)
 }

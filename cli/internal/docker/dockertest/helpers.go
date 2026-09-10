@@ -1,9 +1,8 @@
 package dockertest
 
 import (
-	"bytes"
 	"context"
-	"fmt"
+	"io"
 	"net/netip"
 	"os"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"chaosd/cli/internal/docker"
 	"chaosd/cli/test"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
@@ -173,18 +171,10 @@ type ComposeApp struct {
 	ProjectName string
 }
 
-func writeComposeFile(t *testing.T, composeYAML string) string {
+func StartCompose(t *testing.T, projectName string, composeYAML string) ComposeApp {
 	t.Helper()
 
-	file := test.File(t, composeYAML)
-
-	return file
-}
-
-func StartComposeApp(t *testing.T, projectName string, composeYAML string) ComposeApp {
-	t.Helper()
-
-	composeFile := writeComposeFile(t, composeYAML)
+	composeFile := test.File(t, composeYAML)
 
 	stack, err := compose.NewDockerComposeWith(
 		compose.WithStackFiles(composeFile),
@@ -280,51 +270,38 @@ func InspectContainer(t *testing.T, containerID string) client.ContainerInspectR
 	return containerJSON
 }
 
-func MeasureRequestDuration(
+func MeasurePingFrom(
 	t *testing.T,
-	projectName string,
-	serviceName string,
+	source testcontainers.Container,
 	target string,
-) (time.Duration, error) {
+) time.Duration {
 	t.Helper()
-
-	ctr := ContainerByServiceName(t, projectName, serviceName)
 
 	start := time.Now()
 
-	exitCode, output, err := ctr.Exec(
+	exitCode, reader, err := source.Exec(
 		context.Background(),
 		[]string{
-			"curl",
-			"--silent",
-			"--show-error",
-			"--fail",
-			"--output",
-			"/dev/null",
-			"--max-time",
-			"10",
+			"ping",
+			"-c", "1",
+			"-W", "2",
 			target,
 		},
 	)
 
-	duration := time.Since(start)
+	require.NoError(t, err)
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	out, err := io.ReadAll(reader)
+	require.NoError(t, err)
 
-	_, readErr := stdcopy.StdCopy(&stdout, &stderr, output)
-	if readErr != nil {
-		return duration, fmt.Errorf("failed to read curl output: %w", readErr)
-	}
+	require.Equalf(
+		t,
+		0,
+		exitCode,
+		"ping %s failed:\n%s",
+		target,
+		string(out),
+	)
 
-	if err != nil || exitCode != 0 {
-		return duration, fmt.Errorf(
-			"curl failed: %w, exit code: %d, stderr: %s",
-			err,
-			exitCode,
-			stderr.String(),
-		)
-	}
-
-	return duration, nil
+	return time.Since(start)
 }

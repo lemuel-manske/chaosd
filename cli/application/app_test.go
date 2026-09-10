@@ -363,6 +363,8 @@ services:
 
 	effect := fault.Effects[0]
 
+	// FLAKY: sometimes, it's the 20.1 and 20.1 IPs
+
 	assert.Equal(t, "192.168.10.1", effect.SourceIP)
 	assert.Equal(t, "192.168.10.2", effect.TargetIP)
 }

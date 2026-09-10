@@ -16,12 +16,11 @@ import (
 )
 
 func TestManager_PartitionAndHeal(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-manager-1", `name: project-manager-1
+	app := dockertest.StartCompose(t, "project-manager-1", `name: project-manager-1
 
 services:
   node-a:
-    image: curlimages/curl
-    command: ["sleep", "infinity"]
+    image: nginx:alpine
 
   node-b:
     image: nginx:alpine
@@ -44,11 +43,12 @@ services:
 	assert.NotNil(t, nodeA)
 	assert.NotNil(t, nodeB)
 
+	containerA := dockertest.ContainerByServiceName(t, "project-manager-1", "node-a")
+
 	dockertest.AssertReachable(
 		t,
-		"project-manager-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	manager := network.NewManager(network.NewLinuxFirewallInjector(), network.NewNetemInjector())
@@ -59,9 +59,8 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-manager-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
@@ -69,18 +68,18 @@ services:
 
 	dockertest.AssertReachable(
 		t,
-		"project-manager-1",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 }
 
 func TestManager_PartitionAndHeal_IsBidirectional(t *testing.T) {
-	app := dockertest.StartComposeApp(t, "project-manager-2", `name: project-manager-2
+	app := dockertest.StartCompose(t, "project-manager-2", `name: project-manager-2
 
 services:
   node-a:
-    image: wbitt/network-multitool
+    image: nginx:alpine
+
   node-b:
     image: nginx:alpine
 `)
@@ -102,11 +101,13 @@ services:
 	assert.NotNil(t, nodeA)
 	assert.NotNil(t, nodeB)
 
+	containerA := dockertest.ContainerByServiceName(t, "project-manager-2", "node-a")
+	containerB := dockertest.ContainerByServiceName(t, "project-manager-2", "node-b")
+
 	dockertest.AssertReachable(
 		t,
-		"project-manager-2",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	manager := network.NewManager(network.NewLinuxFirewallInjector(), network.NewNetemInjector())
@@ -117,32 +118,28 @@ services:
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-manager-2",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	dockertest.AssertNotReachable(
 		t,
-		"project-manager-2",
-		"node-b",
-		"http://node-a",
+		containerB,
+		"node-a",
 	)
 
-		err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
+	err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
 	assert.NoError(t, err)
 
 	dockertest.AssertReachable(
 		t,
-		"project-manager-2",
-		"node-a",
-		"http://node-b",
+		containerA,
+		"node-b",
 	)
 
 	dockertest.AssertReachable(
 		t,
-		"project-manager-2",
-		"node-b",
-		"http://node-a",
+		containerB,
+		"node-a",
 	)
 }

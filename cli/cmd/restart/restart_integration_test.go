@@ -16,7 +16,7 @@ import (
 )
 
 func TestRestartCmd_RunningComposeProjectWithNonexistentService_ReturnsError(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartCompose(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -38,7 +38,7 @@ services:
 }
 
 func TestRestartCmd_ExistingService_PrintsRestartedContainer(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartCompose(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -60,7 +60,7 @@ services:
 }
 
 func TestRestartCmd_MultipleReplicas_PrintsAllRestartedContainers(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartCompose(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:
@@ -86,7 +86,7 @@ services:
 }
 
 func TestRestartCmd_ExistingService_RestartsContainer(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-restart-1`, `
+	app := dockertest.StartCompose(t, `project-restart-1`, `
 name: project-restart-1
 services:
   web:

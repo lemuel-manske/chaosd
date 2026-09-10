@@ -45,10 +45,14 @@ type Delayer interface {
 	Heal(ctx context.Context, request HealRequest) []ActionResult
 }
 
-type NetemInjector struct{}
+type NetemInjector struct {
+	ifaceResolver InterfaceResolver
+}
 
 func NewNetemInjector() *NetemInjector {
-	return &NetemInjector{}
+	return &NetemInjector{
+		ifaceResolver: NewLinuxInterfaceResolver(),
+	}
 }
 
 // Delay applies network delay to each requested link.
@@ -72,7 +76,8 @@ func (i *NetemInjector) Delay(
 	configuredInterfaces := make(map[string]bool)
 
 	for _, link := range request.Links {
-		iface, err := i.resolveInterface(ctx, link.TargetIP)
+		iface, err := i.ifaceResolver.ResolveEgressInterface(ctx, link)
+
 		if err != nil {
 			results = append(results, ActionResult{
 				Link: link,
@@ -111,7 +116,7 @@ func (i *NetemInjector) Delay(
 		if err := i.addTargetFilter(
 			ctx,
 			iface,
-			link.TargetIP,
+			link,
 			request.Metadata,
 		); err != nil {
 			results = append(results, ActionResult{
@@ -149,7 +154,8 @@ func (i *NetemInjector) Heal(
 			Link: link,
 		}
 
-		iface, err := i.resolveInterface(ctx, link.TargetIP)
+		iface, err := i.ifaceResolver.ResolveEgressInterface(ctx, link)
+
 		if err != nil {
 			results[idx].Err = fmt.Errorf(
 				"resolve interface for target %s: %w",
@@ -195,41 +201,6 @@ func (i *NetemInjector) Heal(
 	}
 
 	return results
-}
-
-func (i *NetemInjector) resolveInterface(
-	ctx context.Context,
-	targetIP string,
-) (string, error) {
-	out, err := exec.CommandContext(
-		ctx,
-		"ip",
-		"route",
-		"get",
-		targetIP,
-	).CombinedOutput()
-
-	if err != nil {
-		return "", fmt.Errorf(
-			"ip route get %s: %w: %s",
-			targetIP,
-			err,
-			strings.TrimSpace(string(out)),
-		)
-	}
-
-	fields := strings.Fields(string(out))
-
-	for idx, field := range fields {
-		if field == "dev" && idx+1 < len(fields) {
-			return fields[idx+1], nil
-		}
-	}
-
-	return "", fmt.Errorf(
-		"interface not found in route to %s",
-		targetIP,
-	)
 }
 
 func (i *NetemInjector) ensureRootQdisc(
@@ -300,10 +271,10 @@ func (i *NetemInjector) addDelayQdisc(
 func (i *NetemInjector) addTargetFilter(
 	ctx context.Context,
 	iface string,
-	targetIP string,
+	link Link,
 	metadata RuleMetadata,
 ) error {
-	pref := filterPreference(metadata, targetIP)
+	pref := filterPreference(metadata, link.TargetIP)
 
 	out, err := exec.CommandContext(
 		ctx,
@@ -315,15 +286,15 @@ func (i *NetemInjector) addTargetFilter(
 		"parent", "1:0",
 		"pref", strconv.Itoa(pref),
 		"u32",
-		"match", "ip",
-		"dst", targetIP+"/32",
+		"match", "ip", "src", link.SourceIP+"/32",
+		"match", "ip", "dst", link.TargetIP+"/32",
 		"flowid", netemParent,
 	).CombinedOutput()
 
 	if err != nil {
 		return fmt.Errorf(
 			"add traffic filter for %s on %s: %w: %s",
-			targetIP,
+			link.TargetIP,
 			iface,
 			err,
 			strings.TrimSpace(string(out)),

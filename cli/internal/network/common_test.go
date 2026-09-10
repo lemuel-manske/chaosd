@@ -80,3 +80,53 @@ func TestLinksBetween_NoCommonNetworks(t *testing.T) {
 
 	assert.ElementsMatch(t, expected, actual)
 }
+
+func TestLinksBetween_ReturnConsistentOrder(t *testing.T) {
+	tl := topology.Topology{
+		Nodes: []topology.Node{
+			{
+				ContainerName: "node-a",
+				Networks: []topology.NetworkEndpoint{
+					{
+						NetworkName: "frontend",
+						IPAddress:   "192.168.10.1",
+					},
+					{
+						NetworkName: "backend",
+						IPAddress:   "192.168.20.1",
+					},
+				},
+			},
+			{
+				ContainerName: "node-b",
+				Networks: []topology.NetworkEndpoint{
+					{
+						NetworkName: "frontend",
+						IPAddress:   "192.168.10.2",
+					},
+					{
+						NetworkName: "backend",
+						IPAddress:   "192.168.20.2",
+					},
+				},
+			},
+		},
+	}
+
+	actual := network.LinksBetween(tl.Nodes[0], tl.Nodes[1])
+
+	expected := []network.Link{
+		{
+			NetworkName: "backend",
+			SourceIP:    "192.168.20.1",
+			TargetIP:    "192.168.20.2",
+		},
+		{
+			NetworkName: "frontend",
+			SourceIP:    "192.168.10.1",
+			TargetIP:    "192.168.10.2",
+		},
+	}
+
+	assert.Equal(t, expected, actual)
+}

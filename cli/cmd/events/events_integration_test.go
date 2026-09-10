@@ -16,7 +16,7 @@ import (
 )
 
 func TestEventsCmd_RunningComposeProject_ListsEvents(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-events-1`, `name: project-events-1
+	app := dockertest.StartCompose(t, `project-events-1`, `name: project-events-1
 services:
   web-1:
     image: nginx

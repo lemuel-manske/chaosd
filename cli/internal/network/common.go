@@ -2,6 +2,7 @@ package network
 
 import (
 	"chaosd/cli/internal/topology"
+	"sort"
 )
 
 type RuleMetadata struct {
@@ -53,6 +54,10 @@ func LinksBetween(a, b topology.Node) []Link {
 			}
 		}
 	}
+
+	sort.Slice(links, func(i, j int) bool {
+		return links[i].NetworkName < links[j].NetworkName
+	})
 
 	return links
 }

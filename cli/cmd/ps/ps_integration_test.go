@@ -15,7 +15,7 @@ import (
 )
 
 func TestPsCmd_RunningComposeProject_PrintsRunningService(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartCompose(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
@@ -32,14 +32,14 @@ services:
 }
 
 func TestPsCmd_MultipleComposeProjects_PrintsOnlySessionProject(t *testing.T) {
-	app1 := dockertest.StartComposeApp(t, `project-ps-1`, `
+	app1 := dockertest.StartCompose(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
     image: nginx:alpine
 `)
 
-	dockertest.StartComposeApp(t, `project2`, `
+	dockertest.StartCompose(t, `project2`, `
 name: project2
 services:
   web:
@@ -58,7 +58,7 @@ services:
 }
 
 func TestPsCmd_MultipleReplicas_PrintsAllReplicas(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartCompose(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
@@ -77,7 +77,7 @@ services:
 }
 
 func TestPsCmd_StoppedContainer_PrintsExitedStatus(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartCompose(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
@@ -96,7 +96,7 @@ services:
 }
 
 func TestPsCmd_MissingContainer_PrintsMissingStatus(t *testing.T) {
-	app := dockertest.StartComposeApp(t, `project-ps-1`, `
+	app := dockertest.StartCompose(t, `project-ps-1`, `
 name: project-ps-1
 services:
   web:
