@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/storage"
 
 	"github.com/google/uuid"
@@ -43,13 +42,19 @@ func NewFaultID() FaultID {
 	return FaultID(faultIDPrefix + id[:faultIDLength])
 }
 
+type FaultEffect struct {
+	NetworkName string
+	SourceIP    string
+	TargetIP    string
+}
+
 type Fault struct {
-	ID      FaultID                 `json:"id"`
-	Type    string                  `json:"type"`
-	NodeA   string                  `json:"node_a"`
-	NodeB   string                  `json:"node_b"`
-	Status  string                  `json:"status"`
-	Effects []network.AppliedEffect `json:"effects,omitempty"`
+	ID      FaultID       `json:"id"`
+	Type    string        `json:"type"`
+	NodeA   string        `json:"node_a"`
+	NodeB   string        `json:"node_b"`
+	Status  string        `json:"status"`
+	Effects []FaultEffect `json:"effects,omitempty"`
 }
 
 func NewPartitionFault(nodeA, nodeB string) Fault {
@@ -72,7 +77,7 @@ func NewDelayFault(nodeA, nodeB string) Fault {
 	}
 }
 
-func (f *Fault) SetEffects(effects []network.AppliedEffect) {
+func (f *Fault) SetEffects(effects []FaultEffect) {
 	f.Effects = effects
 }
 

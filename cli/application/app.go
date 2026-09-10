@@ -260,7 +260,7 @@ func (app *Application) Partition(
 		return "", err
 	}
 
-	fault.SetEffects(effects)
+	fault.SetEffects(AssembleEffects(effects))
 
 	faultID, err := app.SessionStore.AddFault(sessionID, fault)
 
@@ -331,7 +331,7 @@ func (app *Application) Delay(
 		return "", err
 	}
 
-	aFault.SetEffects(appliedEffects)
+	aFault.SetEffects(AssembleEffects(appliedEffects))
 
 	faultID, err := app.SessionStore.AddFault(sessionID, aFault)
 
@@ -373,7 +373,12 @@ func (app *Application) Heal(
 		return fmt.Errorf("fault %s is already healed", faultID)
 	}
 
-	err = app.NetworkManager.Heal(ctx, string(fault.ID), fault.Type, fault.Effects)
+	err = app.NetworkManager.Heal(
+		ctx,
+		string(fault.ID),
+		fault.Type,
+		DisassembleEffects(fault.Effects),
+	)
 
 	if err != nil {
 		return err
