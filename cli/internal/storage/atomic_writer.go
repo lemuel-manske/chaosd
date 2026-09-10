@@ -1,3 +1,5 @@
+// Package storage provides an interface and implementation for atomic file writing,
+// ensuring that files are written in a way that prevents partial writes and maintains data integrity.
 package storage
 
 import (
