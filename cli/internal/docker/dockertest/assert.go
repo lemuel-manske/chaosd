@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func AssertCannotReach(
+func AssertNotReachable(
 	t *testing.T,
 	project string,
 	fromService string,
@@ -42,7 +42,7 @@ func AssertCannotReach(
 	)
 }
 
-func AssertCanReach(
+func AssertReachable(
 	t *testing.T,
 	project string,
 	fromService string,

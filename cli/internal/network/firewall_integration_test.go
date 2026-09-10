@@ -44,7 +44,7 @@ services:
 	assert.NotNil(t, nodaA)
 	assert.NotNil(t, nodeB)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-firewall-1",
 		"node-a",
@@ -62,7 +62,7 @@ services:
 		assert.NoError(t, result.Err)
 	}
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-firewall-1",
 		"node-a",
@@ -76,7 +76,7 @@ services:
 		assert.NoError(t, result.Err)
 	}
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-firewall-1",
 		"node-a",

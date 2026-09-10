@@ -44,7 +44,7 @@ services:
 	assert.NotNil(t, nodeA)
 	assert.NotNil(t, nodeB)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-manager-1",
 		"node-a",
@@ -57,7 +57,7 @@ services:
 	effects, err := manager.Partition(ctx, nodeA, nodeB, faultID)
 	assert.NoError(t, err)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-manager-1",
 		"node-a",
@@ -67,7 +67,7 @@ services:
 	err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
 	assert.NoError(t, err)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-manager-1",
 		"node-a",
@@ -102,7 +102,7 @@ services:
 	assert.NotNil(t, nodeA)
 	assert.NotNil(t, nodeB)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-manager-2",
 		"node-a",
@@ -115,14 +115,14 @@ services:
 	effects, err := manager.Partition(ctx, nodeA, nodeB, faultID)
 	assert.NoError(t, err)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-manager-2",
 		"node-a",
 		"http://node-b",
 	)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-manager-2",
 		"node-b",
@@ -132,14 +132,14 @@ services:
 		err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
 	assert.NoError(t, err)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-manager-2",
 		"node-a",
 		"http://node-b",
 	)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-manager-2",
 		"node-b",

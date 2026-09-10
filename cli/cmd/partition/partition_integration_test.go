@@ -32,7 +32,7 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-1", app.ComposeFile)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-partition-1",
 		"node-a",
@@ -51,7 +51,7 @@ services:
 
 	faultID := session.ParseFaultID(output)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-partition-1",
 		"node-a",
@@ -69,7 +69,7 @@ services:
 
 	assert.Contains(t, output, "healed")
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-partition-1",
 		"node-a",
@@ -92,7 +92,7 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-2", app.ComposeFile)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-partition-2",
 		"node-a",
@@ -111,14 +111,14 @@ services:
 
 	faultID := session.ParseFaultID(output)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-partition-2",
 		"node-a",
 		"http://node-b",
 	)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-partition-2",
 		"node-b",
@@ -135,8 +135,8 @@ services:
 	assert.NoError(t, err)
 	assert.Contains(t, output, "healed")
 
-	dockertest.AssertCanReach(t, "project-partition-2", "node-a", "http://node-b")
-	dockertest.AssertCanReach(t, "project-partition-2", "node-b", "http://node-a")
+	dockertest.AssertReachable(t, "project-partition-2", "node-a", "http://node-b")
+	dockertest.AssertReachable(t, "project-partition-2", "node-b", "http://node-a")
 }
 
 func TestPartitionCmd_RunningNodes_BlocksCommunicationByIP(t *testing.T) {
@@ -154,7 +154,7 @@ services:
 
 	_session, _ := sessionStore.Create("project-partition-3", app.ComposeFile)
 
-	dockertest.AssertCanReach(
+	dockertest.AssertReachable(
 		t,
 		"project-partition-3",
 		"node-a",
@@ -173,7 +173,7 @@ services:
 
 	faultID := session.ParseFaultID(output)
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-partition-3",
 		"node-a",
@@ -182,7 +182,7 @@ services:
 
 	dockertest.StopContainerByServiceName(t, "project-partition-3", "node-a")
 
-	dockertest.AssertCannotReach(
+	dockertest.AssertNotReachable(
 		t,
 		"project-partition-3",
 		"node-a",
@@ -199,5 +199,5 @@ services:
 	assert.NoError(t, err)
 	assert.Contains(t, output, "healed")
 
-	dockertest.AssertCanReach(t, "project-partition-3", "node-a", "http://node-b")
+	dockertest.AssertReachable(t, "project-partition-3", "node-a", "http://node-b")
 }
