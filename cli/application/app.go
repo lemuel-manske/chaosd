@@ -399,7 +399,7 @@ func (app *Application) Heal(
 
 // TODO: move this logic to topology
 func getRunningNode(t *topology.Topology, name string) (*topology.Node, error) {
-	node := t.NodeByName(name)
+	node := t.NodeByContainerName(name)
 	if node == nil {
 		return nil, fmt.Errorf("%s missing", name)
 	}

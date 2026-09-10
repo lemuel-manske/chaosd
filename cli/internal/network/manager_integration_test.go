@@ -54,7 +54,7 @@ services:
 	manager := network.NewManager(network.NewLinuxFirewallInjector(), network.NewNetemInjector())
 	faultID := "test-fault-id"
 
-	err = manager.Partition(ctx, nodeA, nodeB, faultID)
+	effects, err := manager.Partition(ctx, nodeA, nodeB, faultID)
 	assert.NoError(t, err)
 
 	dockertest.AssertCannotReach(
@@ -64,7 +64,7 @@ services:
 		"http://node-b",
 	)
 
-	err = manager.Heal(ctx, nodeA, nodeB, faultID)
+	err = manager.Heal(ctx, faultID, "partition", effects)
 	assert.NoError(t, err)
 
 	dockertest.AssertCanReach(
@@ -112,7 +112,7 @@ services:
 	manager := network.NewManager(network.NewLinuxFirewallInjector(), network.NewNetemInjector())
 	faultID := "test-fault-id"
 
-	err = manager.Partition(ctx, nodeA, nodeB, faultID)
+	effects, err := manager.Partition(ctx, nodeA, nodeB, faultID)
 	assert.NoError(t, err)
 
 	dockertest.AssertCannotReach(
@@ -129,7 +129,7 @@ services:
 		"http://node-a",
 	)
 
-	err = manager.Heal(ctx, nodeA, nodeB, faultID)
+	err = manager.Heal(ctx, faultID, "partition", effects)
 	assert.NoError(t, err)
 
 	dockertest.AssertCanReach(

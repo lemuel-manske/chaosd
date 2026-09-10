@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadReturnsRunningContainer(t *testing.T) {
+func TestLoad_ReturnsRunningContainer(t *testing.T) {
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -48,7 +48,7 @@ func TestLoadReturnsRunningContainer(t *testing.T) {
 		Project: "project1",
 		Nodes: []Node{
 			{
-				Service:       "web",
+				ServiceName:       "web",
 				ContainerID:   "1234567890",
 				ContainerName: "chaosd-app-1",
 				State:         "running",
@@ -67,7 +67,7 @@ func TestLoadReturnsRunningContainer(t *testing.T) {
 	assert.Equal(t, expectedTopology, *actualTopology)
 }
 
-func TestLoadNormalizesDockerContainerName(t *testing.T) {
+func TestLoad_NormalizesDockerContainerName(t *testing.T) {
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(
 			dockertest.NewRunningContainer(
@@ -98,7 +98,7 @@ func TestLoadNormalizesDockerContainerName(t *testing.T) {
 	assert.Equal(t, "project-web-1", actualTopology.Nodes[0].ContainerName)
 }
 
-func TestLoadMarksMissingService(t *testing.T) {
+func TestLoad_MarksMissingService(t *testing.T) {
 	dockerProvider := dockertest.NewFakeDockerProvider(
 		dockertest.NewContainers(),
 	)
@@ -127,7 +127,7 @@ func TestLoadMarksMissingService(t *testing.T) {
 		Project: "project1",
 		Nodes: []Node{
 			{
-				Service: "web",
+				ServiceName: "web",
 				State:   "missing",
 			},
 		},
@@ -138,7 +138,7 @@ func TestLoadMarksMissingService(t *testing.T) {
 	assert.Equal(t, expectedTopology, *actualTopology)
 }
 
-func TestNodeByNameReturnsNodeWithMatchingContainerName(t *testing.T) {
+func TestNodeByContainerName_ReturnsNodeWithMatchingContainerName(t *testing.T) {
 	nodes := []Node{
 		{
 			ContainerName: "node-a",
@@ -153,7 +153,7 @@ func TestNodeByNameReturnsNodeWithMatchingContainerName(t *testing.T) {
 		Nodes:   nodes,
 	}
 
-	actual := topology.NodeByName("node-a")
+	actual := topology.NodeByContainerName("node-a")
 
 	expected := &nodes[0]
 
@@ -163,7 +163,7 @@ func TestNodeByNameReturnsNodeWithMatchingContainerName(t *testing.T) {
 func TestNodesByNetwork(t *testing.T) {
 	nodes := []Node{
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "1",
 			ContainerName: "project-web-1",
 			State:         "running",
@@ -179,7 +179,7 @@ func TestNodesByNetwork(t *testing.T) {
 			},
 		},
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "2",
 			ContainerName: "project-web-2",
 			State:         "running",
@@ -243,7 +243,7 @@ func TestGroupByNetworks(t *testing.T) {
 
 	nodes := []Node{
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "1",
 			ContainerName: "project-web-1",
 			State:         "running",
@@ -259,7 +259,7 @@ func TestGroupByNetworks(t *testing.T) {
 			},
 		},
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "2",
 			ContainerName: "project-web-2",
 			State:         "running",
@@ -330,7 +330,7 @@ func TestGroupByNetworks(t *testing.T) {
 	)
 }
 
-func TestSharedNetworkEndpointsReturnsOnlyNetworksSharedByBothNodes(t *testing.T) {
+func TestSharedNetworkEndpoints_ReturnsOnlyNetworksSharedByBothNodes(t *testing.T) {
 	tl := Topology{
 		Nodes: []Node{
 			{

@@ -69,7 +69,7 @@ services:
 		"http://node-b",
 	)
 
-	healRequest := network.NewHealPartitionRequest(nodaA, nodeB, fakeFaultID)
+	healRequest := network.NewHealRequest(nodaA, nodeB, fakeFaultID)
 	results = linuxFirewallInjector.Heal(ctx, healRequest)
 
 	for _, result := range results {

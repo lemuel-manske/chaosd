@@ -21,19 +21,19 @@ type NetworkNode struct {
 	Address string
 }
 
-type NetworkEndpoint struct {
-	NetworkName string
-	IPAddress   string
-}
-
 type NetworkPair struct {
 	NetworkName string
 	NodeA       NetworkNode
 	NodeB       NetworkNode
 }
 
+type NetworkEndpoint struct {
+	NetworkName string
+	IPAddress   string
+}
+
 type Node struct {
-	Service       string
+	ServiceName   string
 	ContainerID   string
 	ContainerName string
 	State         string
@@ -83,8 +83,8 @@ func Load(
 
 		if len(containers) == 0 {
 			topology.Nodes = append(topology.Nodes, Node{
-				Service: service,
-				State:   "missing",
+				ServiceName: service,
+				State:       "missing",
 			})
 			continue
 		}
@@ -105,7 +105,7 @@ func Load(
 			containerName := strings.TrimPrefix(names[0], "/")
 
 			topology.Nodes = append(topology.Nodes, Node{
-				Service:       service,
+				ServiceName:   service,
 				ContainerID:   container.ID,
 				ContainerName: containerName,
 				State:         string(container.State),
@@ -144,7 +144,7 @@ func (t *Topology) NodesByServiceName(serviceName string) []Node {
 	var nodes []Node
 
 	for _, node := range t.Nodes {
-		if node.Service == serviceName {
+		if node.ServiceName == serviceName {
 			nodes = append(nodes, node)
 		}
 	}
@@ -152,9 +152,11 @@ func (t *Topology) NodesByServiceName(serviceName string) []Node {
 	return nodes
 }
 
-func (t *Topology) NodeByName(nodeName string) *Node {
+func (t *Topology) NodeByContainerName(containerName string) *Node {
 	for _, node := range t.Nodes {
-		if node.ContainerName == nodeName {
+
+		// container names are unique, so we can return the first match
+		if node.ContainerName == containerName {
 			return &node
 		}
 	}
@@ -189,8 +191,8 @@ func (t Topology) Networks() map[string][]NetworkNode {
 func (t *Topology) SharedNetworkEndpoints(nodeA string, nodeB string) []NetworkPair {
 	var sharedNetworks []NetworkPair
 
-	nodeAObj := t.NodeByName(nodeA)
-	nodeBObj := t.NodeByName(nodeB)
+	nodeAObj := t.NodeByContainerName(nodeA)
+	nodeBObj := t.NodeByContainerName(nodeB)
 
 	if nodeAObj == nil || nodeBObj == nil {
 		return sharedNetworks
@@ -223,7 +225,7 @@ func (t *Topology) Print(stdout io.Writer) {
 	fmt.Fprintf(stdout, reportFormat, "SERVICE", "CONTAINER", "STATE")
 
 	for _, node := range t.Nodes {
-		fmt.Fprintf(stdout, reportFormat, node.Service, node.ContainerName, node.State)
+		fmt.Fprintf(stdout, reportFormat, node.ServiceName, node.ContainerName, node.State)
 	}
 
 	if len(t.Nodes) == 0 {

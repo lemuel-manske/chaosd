@@ -20,7 +20,7 @@ func TestRestartLifecycle(t *testing.T) {
 
 	res := r.Restart(ctx, []topology.Node{
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "1234567890",
 			ContainerName: "chaosd-app-1",
 			State:         "running",
@@ -33,7 +33,7 @@ func TestRestartLifecycle(t *testing.T) {
 
 	assert.Nil(t, stNode.Err)
 
-	assert.Equal(t, "web", stNode.Node.Service)
+	assert.Equal(t, "web", stNode.Node.ServiceName)
 }
 
 func TestRestartLifecycleWithError(t *testing.T) {
@@ -49,7 +49,7 @@ func TestRestartLifecycleWithError(t *testing.T) {
 
 	res := r.Restart(ctx, []topology.Node{
 		{
-			Service:       "web",
+			ServiceName:       "web",
 			ContainerID:   "1234567890",
 			ContainerName: "chaosd-app-1",
 			State:         "running",
@@ -62,5 +62,5 @@ func TestRestartLifecycleWithError(t *testing.T) {
 
 	assert.NotNil(t, stNode.Err)
 
-	assert.Equal(t, "web", stNode.Node.Service)
+	assert.Equal(t, "web", stNode.Node.ServiceName)
 }
