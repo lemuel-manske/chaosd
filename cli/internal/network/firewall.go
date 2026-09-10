@@ -23,7 +23,7 @@ func NewPartitionRequest(
 	return PartitionRequest{
 		Links: links,
 		Metadata: RuleMetadata{
-			FaultID: faultID,
+			ID: faultID,
 		},
 	}
 }
@@ -53,7 +53,6 @@ func (i *LinuxFirewallInjector) Partition(
 	results := make([]ActionResult, 0)
 
 	for _, l := range request.Links {
-
 		targetIP := l.TargetIP
 		sourceIP := l.SourceIP
 
@@ -74,7 +73,7 @@ func (i *LinuxFirewallInjector) Partition(
 			"-I", chaosdChainName,
 			"-s", sourceIP,
 			"-d", targetIP,
-			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.FaultID),
+			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.ID),
 			"-j", "DROP",
 		)
 
@@ -123,7 +122,7 @@ func (i *LinuxFirewallInjector) Heal(
 			"-D", chaosdChainName,
 			"-s", sourceIP,
 			"-d", targetIP,
-			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.FaultID),
+			"-m", "comment", "--comment", fmt.Sprintf(commentFormat, request.Metadata.ID),
 			"-j", "DROP",
 		)
 

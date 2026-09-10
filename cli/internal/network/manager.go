@@ -148,7 +148,7 @@ func (m *concreteManager) Heal(
 	request := HealRequest{
 		Links: links,
 		Metadata: RuleMetadata{
-			FaultID: faultID,
+			ID: faultID,
 		},
 	}
 

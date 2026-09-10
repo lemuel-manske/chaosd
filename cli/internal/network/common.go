@@ -5,7 +5,7 @@ import (
 )
 
 type RuleMetadata struct {
-	FaultID string
+	ID string
 }
 
 type HealRequest struct {
@@ -23,7 +23,7 @@ func NewHealRequest(
 	return HealRequest{
 		Links: links,
 		Metadata: RuleMetadata{
-			FaultID: faultID,
+			ID: faultID,
 		},
 	}
 }
