@@ -1,3 +1,5 @@
+// Package docker wraps Docker's client library to provide a simplified interface 
+// for interacting with Docker containers and services.
 package docker
 
 import (
@@ -38,7 +40,7 @@ type DockerProvider interface {
 }
 
 func NewDockerProvider() DockerProvider {
-	return &dockerProvider{}
+	return &ConcreteDockerProvider{}
 }
 
 func Parse(file string) (*ComposeFile, error) {
@@ -78,29 +80,29 @@ func Parse(file string) (*ComposeFile, error) {
 	return &compose, nil
 }
 
-type dockerClient struct {
+type DockerClientCLI struct {
 	cli *client.Client
 }
 
-type dockerProvider struct{}
+type ConcreteDockerProvider struct{}
 
-func (d *dockerProvider) NewClient() (DockerClient, error) {
+func (d *ConcreteDockerProvider) NewClient() (DockerClient, error) {
 	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	return &dockerClient{
+	return &DockerClientCLI{
 		cli: cli,
 	}, nil
 }
 
-func (d *dockerClient) Ping(ctx context.Context) error {
+func (d *DockerClientCLI) Ping(ctx context.Context) error {
 	_, err := d.cli.Ping(ctx, client.PingOptions{})
 	return err
 }
 
-func (d *dockerClient) ContainerList(
+func (d *DockerClientCLI) ContainerList(
 	ctx context.Context,
 	options client.ContainerListOptions,
 ) ([]container.Summary, error) {
@@ -109,7 +111,7 @@ func (d *dockerClient) ContainerList(
 	return list.Items, err
 }
 
-func (d *dockerClient) RestartContainer(
+func (d *DockerClientCLI) RestartContainer(
 	ctx context.Context,
 	containerID string,
 	options client.ContainerRestartOptions,
