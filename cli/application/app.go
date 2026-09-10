@@ -363,7 +363,7 @@ func (app *Application) Heal(
 		return err
 	}
 
-	fault := _session.GetFault(faultID)
+	fault := _session.GetFaultByID(faultID)
 
 	if fault == nil {
 		return fmt.Errorf("fault %s not found", faultID)

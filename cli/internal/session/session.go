@@ -25,10 +25,10 @@ const (
 
 	sessionFileExt = ".json"
 
-	sessionIDLength = 6
+	sessionIDLength = 8
 	sessionIDPrefix = "sess-"
 
-	faultIDLength = 4
+	faultIDLength = 8
 	faultIDPrefix = "fault-"
 )
 
@@ -54,21 +54,21 @@ type Fault struct {
 
 func NewPartitionFault(nodeA, nodeB string) Fault {
 	return Fault{
-		ID:      NewFaultID(),
-		Type:    partitionFaultType,
-		NodeA:   nodeA,
-		NodeB:   nodeB,
-		Status:  activeStatus,
+		ID:     NewFaultID(),
+		Type:   partitionFaultType,
+		NodeA:  nodeA,
+		NodeB:  nodeB,
+		Status: activeStatus,
 	}
 }
 
 func NewDelayFault(nodeA, nodeB string) Fault {
 	return Fault{
-		ID:      NewFaultID(),
-		Type:    delayFaultType,
-		NodeA:   nodeA,
-		NodeB:   nodeB,
-		Status:  activeStatus,
+		ID:     NewFaultID(),
+		Type:   delayFaultType,
+		NodeA:  nodeA,
+		NodeB:  nodeB,
+		Status: activeStatus,
 	}
 }
 
@@ -108,7 +108,7 @@ type Session struct {
 	Faults      []Fault   `json:"faults"`
 }
 
-func (s *Session) GetFault(ID FaultID) *Fault {
+func (s *Session) GetFaultByID(ID FaultID) *Fault {
 	for i := range s.Faults {
 		if s.Faults[i].ID == ID {
 			return &s.Faults[i]
@@ -120,10 +120,11 @@ func (s *Session) GetFault(ID FaultID) *Fault {
 
 // SessionStore is responsible for managing sessions and their subordinates.
 type SessionStore interface {
-	AddFault(sessionID SessionID, fault Fault) (FaultID, error)
 	Create(projectName string, composeFileAbsPath string) (*Session, error)
 	Delete(id SessionID) error
 	Get(id SessionID) (*Session, error)
+
+	AddFault(sessionID SessionID, fault Fault) (FaultID, error)
 	HealFault(sessionID SessionID, faultID FaultID) error
 }
 
@@ -174,11 +175,13 @@ func (s *FileSessionStore) HealFault(
 	faultID FaultID,
 ) error {
 	_session, err := s.Get(sessionID)
+
 	if err != nil {
 		return err
 	}
 
-	fault := _session.GetFault(faultID)
+	fault := _session.GetFaultByID(faultID)
+
 	if fault == nil {
 		return fmt.Errorf("fault %s not found", faultID)
 	}
@@ -191,11 +194,13 @@ func (s *FileSessionStore) HealFault(
 	fault.Status = healedStatus
 
 	path, err := s.createPathToSession(sessionID)
+
 	if err != nil {
 		return err
 	}
 
 	data, err := json.MarshalIndent(_session, "", "  ")
+
 	if err != nil {
 		return fmt.Errorf("encode session: %w", err)
 	}
