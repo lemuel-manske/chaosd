@@ -8,9 +8,11 @@ import (
 	"chaosd/cli/internal/topology"
 )
 
+type NetworkFaultType string
+
 const (
-	faultKindPartition string = "partition"
-	faultKindDelay     string = "delay"
+	FaultTypePartition NetworkFaultType = "partition"
+	FaultTypeDelay     NetworkFaultType = "delay"
 )
 
 type AppliedEffect struct {
@@ -38,7 +40,7 @@ type Manager interface {
 	Heal(
 		ctx context.Context,
 		faultID string,
-		faultKind string,
+		faultType NetworkFaultType,
 		effects []AppliedEffect,
 	) error
 }
@@ -130,7 +132,7 @@ func (m *concreteManager) Delay(
 func (m *concreteManager) Heal(
 	ctx context.Context,
 	faultID string,
-	faultKind string,
+	faultType NetworkFaultType,
 	effects []AppliedEffect,
 ) error {
 	links := make([]Link, 0, len(effects))
@@ -152,15 +154,15 @@ func (m *concreteManager) Heal(
 
 	var results []ActionResult
 
-	switch faultKind {
-	case faultKindDelay:
+	switch faultType {
+	case FaultTypeDelay:
 		results = m.delayer.Heal(ctx, request)
 
-	case faultKindPartition:
+	case FaultTypePartition:
 		results = m.partitioner.Heal(ctx, request)
 
 	default:
-		return fmt.Errorf("unsupported fault kind %q", faultKind)
+		return fmt.Errorf("unsupported fault kind %q", faultType)
 	}
 
 	for _, r := range results {

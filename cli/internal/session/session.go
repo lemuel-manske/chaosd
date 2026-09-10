@@ -15,12 +15,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type FaultType string
+
 const (
 	activeStatus = "active"
 	healedStatus = "healed"
 
-	partitionFaultType = "partition"
-	delayFaultType     = "delay"
+	PartitionFaultType FaultType = "partition"
+	DelayFaultType     FaultType = "delay"
 
 	sessionFileExt = ".json"
 
@@ -50,7 +52,7 @@ type FaultEffect struct {
 
 type Fault struct {
 	ID      FaultID       `json:"id"`
-	Type    string        `json:"type"`
+	Type    FaultType     `json:"type"`
 	NodeA   string        `json:"node_a"`
 	NodeB   string        `json:"node_b"`
 	Status  string        `json:"status"`
@@ -60,7 +62,7 @@ type Fault struct {
 func NewPartitionFault(nodeA, nodeB string) Fault {
 	return Fault{
 		ID:     NewFaultID(),
-		Type:   partitionFaultType,
+		Type:   PartitionFaultType,
 		NodeA:  nodeA,
 		NodeB:  nodeB,
 		Status: activeStatus,
@@ -70,7 +72,7 @@ func NewPartitionFault(nodeA, nodeB string) Fault {
 func NewDelayFault(nodeA, nodeB string) Fault {
 	return Fault{
 		ID:     NewFaultID(),
-		Type:   delayFaultType,
+		Type:   DelayFaultType,
 		NodeA:  nodeA,
 		NodeB:  nodeB,
 		Status: activeStatus,
@@ -82,11 +84,11 @@ func (f *Fault) SetEffects(effects []FaultEffect) {
 }
 
 func (f *Fault) IsDelay() bool {
-	return f.Type == delayFaultType
+	return f.Type == DelayFaultType
 }
 
 func (f *Fault) IsPartition() bool {
-	return f.Type == partitionFaultType
+	return f.Type == PartitionFaultType
 }
 
 func (f *Fault) IsHealed() bool {

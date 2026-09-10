@@ -103,7 +103,7 @@ func TestHeal(t *testing.T) {
 	err := manager.Heal(
 		ctx,
 		faultID,
-		"partition",
+		network.FaultTypePartition,
 		effects,
 	)
 
