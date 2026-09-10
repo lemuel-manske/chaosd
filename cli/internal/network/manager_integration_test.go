@@ -64,7 +64,7 @@ services:
 		"http://node-b",
 	)
 
-	err = manager.Heal(ctx, faultID, network.FaultTypePartition, effects)
+	err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
 	assert.NoError(t, err)
 
 	dockertest.AssertCanReach(
@@ -129,7 +129,7 @@ services:
 		"http://node-a",
 	)
 
-		err = manager.Heal(ctx, faultID, network.FaultTypePartition, effects)
+		err = manager.Heal(ctx, faultID, network.NetworkPartitionFaultType, effects)
 	assert.NoError(t, err)
 
 	dockertest.AssertCanReach(

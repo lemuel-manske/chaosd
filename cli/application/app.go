@@ -167,7 +167,7 @@ func (app *Application) RestartService(
 	nodes := t.NodesByServiceName(serviceName)
 
 	if len(nodes) == 0 {
-		err := fmt.Errorf(
+		err = fmt.Errorf(
 			"service %s not found in project %s",
 			serviceName,
 			t.Project,
@@ -186,13 +186,17 @@ func (app *Application) RestartService(
 		}
 	}
 
-	app.EventStore.Append(sessionID, event.Event{
+	err = app.EventStore.Append(sessionID, event.Event{
 		Type:      event.RestartEvent,
 		CreatedAt: time.Now(),
 		Data: event.RestartEventData{
 			ServiceName: serviceName,
 		},
 	})
+
+	if err != nil {
+		return results, err
+	}
 
 	return results, nil
 }
@@ -254,21 +258,34 @@ func (app *Application) Partition(
 
 	fault := session.NewPartitionFault(nodeAName, nodeBName)
 
-	effects, err := app.NetworkManager.Partition(ctx, *nodeA, *nodeB, string(fault.ID))
+	effects, applyErr := app.NetworkManager.Partition(
+		ctx,
+		*nodeA,
+		*nodeB,
+		string(fault.ID),
+	)
 
-	if err != nil {
-		return "", err
+	var faultID session.FaultID
+
+	if len(effects) > 0 {
+		fault.SetEffects(AssembleEffects(effects))
+
+		var persistErr error
+
+		faultID, persistErr = app.SessionStore.AddFault(sessionID, fault)
+
+		if persistErr != nil {
+			// TODO: rollback the partition if adding the fault to the session store fails
+
+			return faultID, persistErr
+		}
 	}
 
-	fault.SetEffects(AssembleEffects(effects))
-
-	faultID, err := app.SessionStore.AddFault(sessionID, fault)
-
-	if err != nil {
-		return "", err
+	if applyErr != nil {
+		return faultID, applyErr
 	}
 
-	app.EventStore.Append(sessionID, event.Event{
+	err = app.EventStore.Append(sessionID, event.Event{
 		Type:      event.PartitionAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.PartitionAppliedEventData{
@@ -276,6 +293,10 @@ func (app *Application) Partition(
 			NodeBName: nodeBName,
 		},
 	})
+
+	if err != nil {
+		return faultID, err
+	}
 
 	return faultID, nil
 }
@@ -323,23 +344,31 @@ func (app *Application) Delay(
 		return "", err
 	}
 
-	aFault := session.NewDelayFault(nodeAName, nodeBName)
+	fault := session.NewDelayFault(nodeAName, nodeBName)
 
-	appliedEffects, err := app.NetworkManager.Delay(ctx, *nodeA, *nodeB, string(aFault.ID), delay)
+	effects, applyErr := app.NetworkManager.Delay(ctx, *nodeA, *nodeB, string(fault.ID), delay)
 
-	if err != nil {
-		return "", err
+	var faultID session.FaultID
+
+	if len(effects) > 0 {
+		fault.SetEffects(AssembleEffects(effects))
+
+		var persistErr error
+
+		faultID, persistErr = app.SessionStore.AddFault(sessionID, fault)
+
+		if persistErr != nil {
+			// TODO: rollback the partition if adding the fault to the session store fails
+
+			return faultID, persistErr
+		}
 	}
 
-	aFault.SetEffects(AssembleEffects(appliedEffects))
-
-	faultID, err := app.SessionStore.AddFault(sessionID, aFault)
-
-	if err != nil {
-		return "", err
+	if applyErr != nil {
+		return faultID, applyErr
 	}
 
-	app.EventStore.Append(sessionID, event.Event{
+	err = app.EventStore.Append(sessionID, event.Event{
 		Type:      event.DelayAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.DelayAppliedEventData{
@@ -348,6 +377,10 @@ func (app *Application) Delay(
 			NodeBName: nodeBName,
 		},
 	})
+
+	if err != nil {
+		return faultID, err
+	}
 
 	return faultID, nil
 }
@@ -376,7 +409,7 @@ func (app *Application) Heal(
 	err = app.NetworkManager.Heal(
 		ctx,
 		string(fault.ID),
-		fault.Type,
+		TranslateType(fault.Type),
 		DisassembleEffects(fault.Effects),
 	)
 
@@ -390,7 +423,7 @@ func (app *Application) Heal(
 		return err
 	}
 
-	app.EventStore.Append(sessionID, event.Event{
+	err = app.EventStore.Append(sessionID, event.Event{
 		Type:      event.HealAppliedEvent,
 		CreatedAt: time.Now(),
 		Data: event.HealAppliedEventData{
@@ -398,6 +431,10 @@ func (app *Application) Heal(
 			NodeBName: fault.NodeB,
 		},
 	})
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

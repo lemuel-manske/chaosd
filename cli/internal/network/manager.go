@@ -11,8 +11,8 @@ import (
 type NetworkFaultType string
 
 const (
-	FaultTypePartition NetworkFaultType = "partition"
-	FaultTypeDelay     NetworkFaultType = "delay"
+	NetworkPartitionFaultType NetworkFaultType = "partition"
+	NetworkDelayFaultType     NetworkFaultType = "delay"
 )
 
 type AppliedEffect struct {
@@ -155,10 +155,10 @@ func (m *concreteManager) Heal(
 	var results []ActionResult
 
 	switch faultType {
-	case FaultTypeDelay:
+	case NetworkDelayFaultType:
 		results = m.delayer.Heal(ctx, request)
 
-	case FaultTypePartition:
+	case NetworkPartitionFaultType:
 		results = m.partitioner.Heal(ctx, request)
 
 	default:

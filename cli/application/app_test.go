@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"chaosd/cli/internal/event"
+	"chaosd/cli/internal/network"
 	"chaosd/cli/internal/session"
 	"chaosd/cli/internal/topology"
 	"chaosd/cli/test"
@@ -296,7 +298,76 @@ services:
 	assert.NoError(t, err)
 }
 
-func TestParition_IsBidirectional(t *testing.T) {
+func TestApplyPartition_PersistsPartialEffectsAndReturnsApplyError(t *testing.T) {
+	file := test.File(t, `name: project-network-1
+services:
+  web:
+    image: nginx
+  db:
+    image: postgres
+`)
+
+	dockerProvider := dockertest.NewFakeDockerProvider(
+		dockertest.NewContainers(
+			dockertest.NewRunningContainer(
+				"1",
+				"chaosd-web-1",
+				"project-network-1",
+				"web",
+				"a:192.168.10.1,b:192.168.20.1",
+			),
+			dockertest.NewRunningContainer(
+				"2",
+				"chaosd-db-1",
+				"project-network-1",
+				"db",
+				"a:192.168.10.2,b:192.168.20.2",
+			),
+		),
+	)
+
+	sessionStore := sessiontest.NewTmpSessionStore(t)
+
+	networkManager := network.NewManager(
+		networktest.NewStubPartitionerWithError(1, errors.New("partition error")),
+		networktest.NewStubDelayer(),
+	)
+
+	app := NewApplication(
+		WithDockerProvider(dockerProvider),
+		WithEventStore(event.NewInMemoryEventStore()),
+		WithNetworkManager(networkManager),
+		WithSessionStore(sessionStore),
+	)
+
+	session, _ := sessionStore.Create("project-network-1", file)
+
+	faultID, err := app.Partition(context.Background(), session.ID, "chaosd-web-1", "chaosd-db-1")
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "partition error")
+
+	sessionAfter, _ := sessionStore.Get(session.ID)
+
+	assert.Len(t, sessionAfter.Faults, 1)
+
+	fault := sessionAfter.Faults[0]
+
+	assert.Equal(t, faultID, fault.ID)
+	assert.Equal(t, "chaosd-web-1", fault.NodeA)
+	assert.Equal(t, "chaosd-db-1", fault.NodeB)
+
+	// saves 1st Link effect, but fails on 2nd Link
+
+	assert.Len(t, fault.Effects, 1)
+
+	effect := fault.Effects[0]
+
+	assert.Equal(t, "192.168.10.1", effect.SourceIP)
+	assert.Equal(t, "192.168.10.2", effect.TargetIP)
+}
+
+func TestPartition_IsBidirectional(t *testing.T) {
 	file := test.File(t, `name: project-network-1
 services:
   web:

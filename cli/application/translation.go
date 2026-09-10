@@ -5,6 +5,17 @@ import (
 	"chaosd/cli/internal/session"
 )
 
+func TranslateType(faultType session.FaultType) network.NetworkFaultType {
+	switch faultType {
+	case session.PartitionFaultType:
+		return network.NetworkPartitionFaultType
+	case session.DelayFaultType:
+		return network.NetworkDelayFaultType
+	default:
+		panic("unknown fault type")
+	}
+}
+
 func DisassembleEffects(effects []session.FaultEffect) []network.AppliedEffect {
 	var disassembled []network.AppliedEffect
 
