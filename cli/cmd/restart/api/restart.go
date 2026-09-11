@@ -13,7 +13,16 @@ func NewRestartCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "restart",
+		Use:  "restart",
+		Args: cobra.ExactArgs(2),
+
+		Short: "Restart containers for a service",
+
+		Long: `Restart all running containers belonging to a service in a Chaosd session.
+
+For services with multiple replicas, Chaosd attempts to restart every
+matching container and reports the result for each one.`,
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 			serviceName := args[1]
@@ -56,6 +65,5 @@ func NewRestartCmd(
 
 			return nil
 		},
-		Args: cobra.ExactArgs(2),
 	}
 }

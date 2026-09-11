@@ -14,7 +14,16 @@ func NewEventsCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "events",
+		Use:  "events",
+		Args: cobra.ExactArgs(1),
+
+		Short: "Show the session event timeline",
+
+		Long: `Show the chronological event timeline for a Chaosd session.
+
+The timeline records actions performed during the experiment, such as
+fault injection, healing, and container restarts.`,
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 
@@ -40,7 +49,6 @@ func NewEventsCmd(
 
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
 	}
 }
 

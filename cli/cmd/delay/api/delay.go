@@ -14,7 +14,15 @@ func NewDelayCmd(
 	app application.Application,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use: "delay",
+		Use:  "delay",
+		Args: cobra.ExactArgs(4),
+
+		Short: "Add network delay between two nodes",
+		Long: `Add network delay between two running nodes in a Chaosd session.
+
+The delay is applied to traffic between the selected nodes across their
+shared network paths and remains active until the fault is healed.`,
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := session.SessionID(args[0])
 
@@ -41,6 +49,5 @@ func NewDelayCmd(
 
 			return nil
 		},
-		Args: cobra.ExactArgs(4),
 	}
 }
